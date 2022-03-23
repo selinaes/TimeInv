@@ -61,6 +61,17 @@ td label {
     padding-left: 0;
 }
 
+.login {
+    width: 100%;
+}
+
+.main-centered {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
 @media only screen and (max-width: 600px) {
     .main-page-form {
         width: 100%;
@@ -70,6 +81,5 @@ td label {
     .inline-elem, td {
         padding-top: 1em;
     }
-
 }
 
