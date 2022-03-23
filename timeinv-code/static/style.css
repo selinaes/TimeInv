@@ -1,0 +1,75 @@
+/* For flashed messages; make them stand out using red and italics */
+
+#messages {
+    color: var(--color-hilite);
+    font-style: italic;
+}
+
+
+h1 {
+    font-size: 200%;
+    color: var(--color-header);
+}
+
+h2, h3 {
+    color: var(--color-header);
+}
+    
+.inline {
+    display: flex;
+    width: 100%;
+}
+
+.inline-elem {
+    padding-left: 1em;
+}
+
+.inline-elem-r {
+    padding-right: 1em;
+    align-items: center;
+    padding-top: 0.3em;
+}
+
+.main-page-form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%
+
+}
+
+select {
+    border-style: solid;
+    border-color: #d5dbe0;
+    border-radius: 0.3em;
+    height: 40px;
+    padding: 0.5em;
+    color: #676767;
+}
+
+td label {
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+.sorting {
+    padding-bottom: 1em; 
+    display: flex;
+}
+
+.sorting label{
+    padding-left: 0;
+}
+
+@media only screen and (max-width: 600px) {
+    .main-page-form {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .inline-elem, td {
+        padding-top: 1em;
+    }
+
+}
+

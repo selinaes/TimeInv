@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block head_stuff %} 
+<title>Products | TimeInv</title>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <h1>Products</h1>
+    <p>View all product information.</p>
+    <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('products')}}">
+        <div class="inline">
+            <label class="inline-elem-r" for="search" id="search-label">Search</label>
+            <input class="form-control mr-sm-2" type="text" id="search" name="search" aria-label="Search">
+        </div>
+        <table>
+            <tr>
+                <td><label for="by">By </label></td>
+                <td>
+                    <select required id="by" name="by">
+                        <option value="">Choose one</option>
+                        <option value="title">Title</option>
+                        <option value="last_modified_by">Last modified by</option>
+                        <option value="sku">SKU</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+        </span>
+    </form>
+    <form class="sorting" method="GET" action="{{url_for('products')}}">
+        <table>
+            <tr>
+                <td><label for="sort">Sort by</label></td>
+                <td>
+                    <select required id="sort" name="sort">
+                        <option value="">Choose one</option>
+                        <option value="price">Price</option>
+                        <option value="title">Title</option>
+                        <option value="sku">SKU</option>
+                    </select>
+                </td>
+                <td class="inline-elem"><label for="order">Order </label></td>
+                <td>
+                    <select required id="order" name="order">
+                        <option value="">Choose one</option>
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Sort</button>
+    </form>
+</div>
+
+<div class="row">
+    {% for product in products %}
+    <div class="col-sm-3">
+        <div class="card">
+            <div class="card-body">
+                <img class="card-img-top" src="https://via.placeholder.com/266x140" alt="Card image cap">
+                <h5 class="card-title">{{product.title}}</h5>
+                <div class="card-text">
+                    <p>SKU: {{product.sku}} <br>
+                        Price: ${{product.price}}
+                    </p>
+                </div>
+                <a href="#" class="btn btn-primary">Edit</a>
+            </div>
+            <div class="card-footer text-muted">
+                Last modified by: {{product.last_modified_by}}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+</div>
+
+
+{% endblock %}
