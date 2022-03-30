@@ -45,8 +45,7 @@ def products():
 
 def product_search(conn, search_type, query):
     curs = dbi.dict_cursor(conn)
-    # Fran's comment: improve this -- unsure why first placeholder isn't working
-    # Temporarily have search_type as a variable
+    # Not using %s for search_type because cannot parametrize column names, only values
     sql = """select * from product 
     where """ + search_type + """ like %s order by title"""
     curs.execute(sql, ['%' + query + '%'])
@@ -55,8 +54,7 @@ def product_search(conn, search_type, query):
 
 def product_sort(conn, by, order):
     curs = dbi.dict_cursor(conn)
-    # Fran's comment: improve this -- unsure why first placeholder isn't working
-    # Temporarily use non-prepared queries
+    # Prepared queries can only be used for values, not column names or order
     sql = "select * from product order by " + by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
@@ -71,6 +69,7 @@ def products_addedby():
     last_modified_by = %s"""
     curs.execute(sql, [username])
     results = curs.fetchall()
+    return results
 
 @app.errorhandler(404)
 def page_not_found(e):
