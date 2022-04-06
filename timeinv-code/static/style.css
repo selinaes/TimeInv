@@ -72,6 +72,10 @@ td label {
     transform: translate(-50%, -50%);
 }
 
+.example {
+    margin: 0;
+}
+
 @media only screen and (max-width: 600px) {
     .main-page-form {
         width: 100%;
