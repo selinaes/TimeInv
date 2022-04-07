@@ -15,11 +15,6 @@ h2, h3 {
     color: var(--color-header);
 }
 
-.testing {
-    display:flex;
-    width: 50%;
-}
-
 .inline {
     display: flex;
     width: 100%;

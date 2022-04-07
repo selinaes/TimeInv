@@ -1,0 +1,21 @@
+username	name	role	permission
+bf1	Bronson Ferguson	cost reporting clerk	product,transaction
+ms1	Martin Smith	cost reporting clerk	product,transaction
+jw1	John Wahl	distribution clerk	product,transaction
+ls1	Leonard Shaw	distribution manager	product,transaction
+at1	Angelina Tharpe	inventory control clerk	product,transaction,supplier,supplierTerm
+tb1	Tanner Baker	inventory control clerk	product,transaction,supplier,supplierTerm
+mr1	Matt Reisner	inventory control clerk	product,transaction,supplier,supplierTerm
+kw1	Kiara Winster	inventory control manager	product,transaction,supplier,supplierTerm
+ad1	Ashlyn Drake	inventory planning clerk	product,transaction,supplier,supplierTerm
+td1	Thomas Dawkins	inventory planning clerk	product,transaction,supplier,supplierTerm
+jk1	Jody Kim	inventory planning clerk	product,transaction,supplier,supplierTerm
+hs1	Helen Sichel	inventory planning manager	product,transaction,supplier,supplierTerm
+lc1	Lisa Chua	site coordinator	supplier,supplierTerm
+jr1	Jack Ryu	site coordinator	supplier,supplierTerm
+mk1	Maggi Kim	warehouse clerk	product,transaction
+ec1	Eden Campbell	warehouse clerk	product,transaction
+bm1	Brelle Myers	warehouse manager	product,transaction
+al1	Anna Lenman	accountant	product,transaction
+ag1	Avelina Gong	technician	product,transaction,supplier,supplierTerm,staff
+lb1	Luke Benson	technician	product,transaction,supplier,supplierTerm,staff

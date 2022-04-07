@@ -3,10 +3,7 @@ from flask import (Flask, render_template, make_response, url_for, request,
 from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
-
-
 import cs304dbi as dbi
-
 
 import random
 
@@ -60,7 +57,6 @@ def product_sort(conn, by, order):
     results = curs.fetchall()
     return results
 
-
 @app.route('/products/<string:username>')
 def products_addedby():
     conn = dbi.connect()
@@ -81,6 +77,39 @@ def init_db():
     db_to_use = 'timeinv_db' 
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
+
+@app.route('/transactions')
+def transactions():
+    conn = dbi.connect()
+    curs = dbi.dict_cursor(conn)
+    if request.args:
+        if request.args.get('search'):
+            results = product_search(conn, request.args.get('by'), request.args.get('search'))
+        else:
+            results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
+    else:
+        sql = "select sku, title, timestamp from product, transaction using (sku) order by timestamp, sku"
+        curs.execute(sql)
+        results = curs.fetchall()
+    return render_template('transactions.html', transaction = results)
+
+def transactions(conn, search_type, query):
+    curs = dbi.dict_cursor(conn)
+    # Not using %s for search_type because cannot parametrize column names, only values
+    sql = """select product.sku, product.title, transacton.timestamp 
+        from product, transaction
+        using """ + search_type + """ like %s order by order by transaction.timestamp, product.sku"""
+    curs.execute(sql, ['%' + query + '%'])
+    results = curs.fetchall()
+    return results
+
+def transaction_sort(conn, by, order):
+    curs = dbi.dict_cursor(conn)
+    # Prepared queries can only be used for values, not column names or order
+    sql = "select sku, title, timestamp from product, transaction using (sku) " + by +  " " + order
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
 
 if __name__ == '__main__':
     import sys, os
