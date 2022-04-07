@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 import cs304dbi as dbi
+import utils 
 
 import random
 
@@ -29,16 +30,15 @@ def welcome():
 def products():
     conn = dbi.connect()
     curs = dbi.dict_cursor(conn)
+    search = request.args.get('search') # Indicates that this is a search
     if request.args:
         if request.args.get('search'):
             results = product_search(conn, request.args.get('by'), request.args.get('search'))
         else:
             results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
     else:
-        sql = "select * from product order by title"
-        curs.execute(sql)
-        results = curs.fetchall()
-    return render_template('products.html', products = results)
+        results = utils.get_all_products(conn)
+    return render_template('products.html', products = results, search = search)
 
 def product_search(conn, search_type, query):
     curs = dbi.dict_cursor(conn)
@@ -58,14 +58,14 @@ def product_sort(conn, by, order):
     return results
 
 @app.route('/products/<string:username>')
-def products_addedby():
+def products_addedby(username):
     conn = dbi.connect()
     curs = dbi.dict_cursor(conn)
     sql = """select * from product where 
     last_modified_by = %s"""
     curs.execute(sql, [username])
     results = curs.fetchall()
-    return results
+    return jsonify(results)
 
 @app.errorhandler(404)
 def page_not_found(e):

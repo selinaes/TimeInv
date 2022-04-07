@@ -38,6 +38,11 @@ h2, h3 {
 
 }
 
+.main-page-form td {
+    padding-bottom: 1em;
+
+}
+
 select {
     border-style: solid;
     border-color: #d5dbe0;
