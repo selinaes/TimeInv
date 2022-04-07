@@ -38,6 +38,11 @@ h2, h3 {
 
 }
 
+.main-page-form td {
+    padding-bottom: 1em;
+
+}
+
 select {
     border-style: solid;
     border-color: #d5dbe0;
@@ -70,10 +75,6 @@ td label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-}
-
-.example {
-    margin: 0;
 }
 
 @media only screen and (max-width: 600px) {
