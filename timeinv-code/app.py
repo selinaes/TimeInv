@@ -36,39 +36,18 @@ def products():
     search = request.args.get('search') # Indicates that this is a search
     if request.args:
         if request.args.get('search'):
-            results = product_search(conn, request.args.get('by'), request.args.get('search'))
+            results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
         else:
-            results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
+            results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
     else:
         results = utils.get_all_products(conn)
     return render_template('products.html', products = results, search = search)
-
-def product_search(conn, search_type, query):
-    curs = dbi.dict_cursor(conn)
-    # Not using %s for search_type because cannot parametrize column names, only values
-    sql = """select * from product 
-    where """ + search_type + """ like %s order by title"""
-    curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-
-def product_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select * from product order by " + by +  " " + order
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
 
 
 @app.route('/products/<string:username>')
 def products_addedby(username):
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    sql = """select * from product where 
-    last_modified_by = %s"""
-    curs.execute(sql, [username])
-    results = curs.fetchall()
+    results = utils.products_addedby(conn, username)
     return jsonify(results)
 
 @app.errorhandler(404)
