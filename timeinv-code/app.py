@@ -1,5 +1,5 @@
 from flask import (Flask, render_template, make_response, url_for, request,
-                   redirect, flash, session, send_from_directory, jsonify)
+                   redirect, flash, session, send_from_directory, jsonify, abort)
 from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
@@ -26,7 +26,7 @@ def index():
 def welcome():
     return render_template('welcome.html')
 
-@app.route('/products', methods=['GET', 'POST'])
+@app.route('/products')
 def products():
     conn = dbi.connect()
     if request.method == 'GET':
@@ -38,9 +38,24 @@ def products():
         else:
             results = utils.get_all_products(conn)
         return render_template('products.html', products = results, search = request.args.get('search'))
-    # Request is post
+
+@app.route('/products/edit/<sku>', methods=['GET', 'POST'])
+def edit_product(sku):
+    conn = dbi.connect()
+    results = utils.get_all_products(conn)
+    product_exists = utils.sku_exists(conn, sku)
+
+    if not product_exists:
+        return abort(404)
+
+    if request.method == 'GET':
+        return render_template('product-edit.html', sku = sku, products=results)
     else:
-        return(request.args)
+        return render_template('product-edit.html', sku = sku, products=results)
+
+
+
+
 
 
 @app.route('/products/<string:username>')

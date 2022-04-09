@@ -4,6 +4,39 @@
 <title>Products | TimeInv</title>
 {% endblock %}
 
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Inventory</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Order</a>
+                </li>
+            </ul>
+            <span>
+                <button class="btn btn-outline-light">
+                    Log out
+                </button>
+            </span>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
 {% block main_content %}
 <div>
     <h1>Products</h1>
@@ -11,6 +44,17 @@
         View information for all products that you have added to your business.
         Search for products or sort the products on display.
     </p>
+    {% if search %}
+    <a href="{{url_for('products')}}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left"
+            viewbox="0 0 16 16">
+            <path fill-rule="evenodd"
+                d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+        </svg>
+        Back to all products
+    </a>
+    {% endif %}
+
     <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('products')}}">
         <div class="inline">
             <label class="inline-elem-r" for="search" id="search-label">Search</label>
@@ -54,42 +98,108 @@
                 </td>
             </tr>
         </table>
-        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Sort</button>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0"
+                type="submit">Sort</button></span>
     </form>
 </div>
 
 <div class="row">
     {% for product in products %}
     <div class="col-sm-3">
-        <form class="card">
-            <div class="card-body">
-                <img class="card-img-top" src="https://via.placeholder.com/266x140" alt="Card image cap">
-                <div class="form-group row">
-                    <label class="col-5 col-form-label mt-2"> SKU:</label>
-                    <div class="col-7">
-                        <input class="form-control inline-flex mt-2" value="{{product.sku}}"></input>
+        <div class="pb-4">
+            <div class="card">
+                <div class="card-body">
+                    <img class="card-img-top" src="https://via.placeholder.com/266x140" alt="Card image cap">
+                    <h5 class="card-title pt-4">{{product.title}}</h5>
+                    <div class="card-text">
+                        <p>SKU: {{product.sku}} <br>
+                            Price: ${{product.price}}
+                        </p>
+                    </div>
+                    <!-- Button trigger modal -->
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#sku{{product.sku}}">
+                        Edit
+                    </button>
+
+                    <!-- Modal -->
+                    <div class="modal fade" id="sku{{product.sku}}" tabindex="-1" role="dialog"
+                        aria-labelledby="modal-title" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Product</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form class="modal-form" method="POST" action="{{url_for('edit_product', sku = product.sku)}}">
+                                        <table>
+                                            <tr>
+                                                <td>
+                                                    <label for="name" class="control-label">Name:</label>
+                                                </td>
+                                                <td>
+                                                    <input type="text" class="form-control" id="product-name"
+                                                        name="product-name" value="{{product.title}}" required/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <label>SKU:</label>
+                                                </td>
+                                                <td>
+                                                    <input class="form-control" id="product-sku" name="product-sku"
+                                                        type="number" value="{{product.sku}}" required/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <label>Price:</label>
+                                                </td>
+                                                <td class="d-inline-flex align-items">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">$</span>
+                                                    </div>
+                                                    <input class="form-control" type="number" id="product-price"
+                                                        name="product-price" value="{{product.price}}" required/>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <div class="container pt-5">
+                                            <div class="d-flex justify-content-end">
+                                                <div class="px-2">
+                                                    <button type="button" class="btn btn-secondary"
+                                                        data-dismiss="modal">Close</button>
+                                                </div>
+                                                <div>
+                                                    <button type="submit" class="btn btn-primary">Save changes</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group row">
-                    <label class="col-5 col-form-label mt-2"> Price:</label>
-                    <div class="col-7">
-                        <span class="d-flex justify-content-center"> 
-                            <p class="p-0">$</p>
-                            <input class="form-control inline-flex mt-2" value="{{product.price}}"></input>
-                        </span>
-                    </div>
+                <div class="card-footer text-muted">
+                    Last modified by: {{product.last_modified_by}}
                 </div>
-                <a href="#" class="btn btn-primary">Submit</a>
             </div>
-            <div class="card-footer text-muted">
-                Last modified by: {{product.last_modified_by}}
-            </div>
-        </form>
+        </div>
     </div>
 
     {% endfor %}
 
 </div>
 
+{% endblock %}
 
+{% block end_scripts %}
+<script>
+    $(document).ready(function(){
+        $("#sku{{sku}}").modal('show');
+    });
+</script>
 {% endblock %}
