@@ -1,5 +1,3 @@
--- Creates product, staff, transaction, supplier and supplyTerm tables.
-
 use timeinv_db; 
 
 drop table if exists supplierTerm;
@@ -21,8 +19,8 @@ create table product (
     sku int unsigned not null primary key,
     title varchar(50),
     price decimal(10,2),
-    image_file_name varchar(100),
     last_modified_by varchar(10), -- staff username
+    image_file_name varchar(100),
     foreign key (last_modified_by) references staff(username)
         on update restrict
         on delete restrict
@@ -72,3 +70,32 @@ create table supplierTerm(
         on delete restrict
 )
 ENGINE = InnoDB;
+
+
+
+
+
+load data local infile 'staff.csv' into table staff
+fields terminated by '\t'
+lines terminated by '\n'
+ignore 1 lines;
+
+load data local infile 'product.csv' into table product
+fields terminated by '\t'
+lines terminated by '\n'
+ignore 1 lines;
+
+load data local infile 'transaction.csv' into table transaction
+fields terminated by '\t'
+lines terminated by '\n'
+ignore 1 lines;
+
+load data local infile 'supplier.csv' into table supplier
+fields terminated by '\t'
+lines terminated by '\n'
+ignore 1 lines;
+
+load data local infile 'supplierTerm.csv' into table supplierTerm
+fields terminated by '\t'
+lines terminated by '\n'
+ignore 1 lines;
