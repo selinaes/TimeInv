@@ -133,7 +133,19 @@
                                     </button>
                                 </div>
                                 <div class="modal-body">
-                                    <form class="modal-form" method="POST" action="{{url_for('edit_product', sku = product.sku)}}">
+                                    <form class="modal-form" method="POST"
+                                        action="{{url_for('edit_product', sku = product.sku)}}">
+                                        <div>
+                                            {% with messages = get_flashed_messages() %}
+                                            {% if messages %}
+                                            <div id="messages">
+                                                {% for msg in messages %}
+                                                <p>{{msg}}</p>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            {% endwith %}
+                                        </div>
                                         <table>
                                             <tr>
                                                 <td>
@@ -141,7 +153,7 @@
                                                 </td>
                                                 <td>
                                                     <input type="text" class="form-control" id="product-name"
-                                                        name="product-name" value="{{product.title}}" required/>
+                                                        name="product-name" value="{{product.title}}" required />
                                                 </td>
                                             </tr>
                                             <tr>
@@ -150,7 +162,7 @@
                                                 </td>
                                                 <td>
                                                     <input class="form-control" id="product-sku" name="product-sku"
-                                                        type="number" value="{{product.sku}}" required/>
+                                                        type="number" value="{{product.sku}}" required />
                                                 </td>
                                             </tr>
                                             <tr>
@@ -162,14 +174,14 @@
                                                         <span class="input-group-text">$</span>
                                                     </div>
                                                     <input class="form-control" type="number" id="product-price"
-                                                        name="product-price" value="{{product.price}}" required/>
+                                                        name="product-price" value="{{product.price}}" required />
                                                 </td>
                                             </tr>
                                         </table>
                                         <div class="container pt-5">
                                             <div class="d-flex justify-content-end">
                                                 <div class="px-2">
-                                                    <button type="button" class="btn btn-secondary"
+                                                    <button type="button" class="btn btn-secondary" id="close-modal"
                                                         data-dismiss="modal">Close</button>
                                                 </div>
                                                 <div>
@@ -198,8 +210,14 @@
 
 {% block end_scripts %}
 <script>
-    $(document).ready(function(){
+    $(document).ready(function () {
         $("#sku{{sku}}").modal('show');
+    });
+
+    $(document).on('click', '#close-modal', function (event) {
+        event.preventDefault();
+        window.location.assign("{{url_for('products')}}");
+        $("#sku{{sku}}").modal('hide');
     });
 </script>
 {% endblock %}
