@@ -133,18 +133,19 @@
                                     </button>
                                 </div>
                                 <div class="modal-body">
-                                    <form class="main-page-form">
+                                    <form class="modal-form" method="POST" action="{{url_for('products')}}">
                                         <table>
                                             <tr>
-                                                <td class="padded-td">
-                                                    <label>Name:</label>
+                                                <td>
+                                                    <label for="name" class="control-label">Name:</label>
                                                 </td>
-                                                <td class="padded-td">
-                                                    <input class="form-control" type="text" value="{{product.title}}" />
+                                                <td>
+                                                    <input type="text" class="form-control" id="product-name"
+                                                        name="product-name" value="{{product.title}}" />
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td class="padded-td">
+                                                <td>
                                                     <label>SKU:</label>
                                                 </td>
                                                 <td>
@@ -152,7 +153,7 @@
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td class="padded-td">
+                                                <td>
                                                     <label>Price:</label>
                                                 </td>
                                                 <td class="d-inline-flex align-items">
@@ -163,11 +164,18 @@
                                                 </td>
                                             </tr>
                                         </table>
+                                        <div class="container pt-5">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <button type="button" class="btn btn-secondary"
+                                                        data-dismiss="modal">Close</button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button type="submit" class="btn btn-primary">Save changes</button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </form>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                                    <button type="button" class="btn btn-primary">Save changes</button>
                                 </div>
                             </div>
                         </div>

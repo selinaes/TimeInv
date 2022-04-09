@@ -29,19 +29,22 @@ def index():
 def welcome():
     return render_template('welcome.html')
 
-@app.route('/products')
+@app.route('/products', methods=['GET', 'POST'])
 def products():
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    search = request.args.get('search') # Indicates that this is a search
-    if request.args:
-        if request.args.get('search'):
-            results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+            else:
+                results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
+            results = utils.get_all_products(conn)
+        return render_template('products.html', products = results, search = request.args.get('search'))
+    # Request is post
     else:
-        results = utils.get_all_products(conn)
-    return render_template('products.html', products = results, search = search)
+        return(request.args)
+
 
 
 @app.route('/products/<string:username>')
