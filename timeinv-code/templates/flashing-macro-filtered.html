@@ -1,0 +1,13 @@
+{% macro show_messages_filtered() %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div>
+    {% for category, msg in messages %}
+    <p class="{{ category }}">{{msg}}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+{% endmacro %}

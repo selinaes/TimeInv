@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
 
 {% block head_stuff %}
 <title>Products | TimeInv</title>
@@ -135,17 +136,7 @@
                                 <div class="modal-body">
                                     <form class="modal-form" method="POST"
                                         action="{{url_for('edit_product', sku = product.sku)}}">
-                                        <div>
-                                            {% with messages = get_flashed_messages() %}
-                                            {% if messages %}
-                                            <div id="messages">
-                                                {% for msg in messages %}
-                                                <p>{{msg}}</p>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                            {% endwith %}
-                                        </div>
+                                        {{ show_messages_filtered() }}
                                         <table>
                                             <tr>
                                                 <td>
@@ -158,7 +149,7 @@
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <label>SKU:</label>
+                                                    <label for="sku" class="control-label">SKU:</label>
                                                 </td>
                                                 <td>
                                                     <input class="form-control" id="product-sku" name="product-sku"
@@ -167,7 +158,7 @@
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <label>Price:</label>
+                                                    <label for="price" class="control-label">Price:</label>
                                                 </td>
                                                 <td class="d-inline-flex align-items">
                                                     <div class="input-group-prepend">

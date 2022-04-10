@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
 
 {% block head_stuff %}
 <title>Products | TimeInv</title>
@@ -39,7 +40,81 @@
 
 {% block main_content %}
 <div>
-    <h1>Products</h1>
+    <!-- Button trigger modal -->
+    <div class="d-flex align-items-start justify-content-between">
+        <h1>Products</h1>
+        <a href="{{url_for('products')}}" class="btn btn-primary" data-toggle="modal" data-target="#newproduct">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg"
+                viewbox="0 0 16 16">
+                <path fill-rule="evenodd"
+                    d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z" />
+            </svg>
+            Add a product
+        </a>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="newproduct" tabindex="-1" role="dialog" aria-labelledby="modal-title"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add a product</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form class="modal-form" method="POST" action="{{url_for('products')}}">
+                        {{ show_messages_filtered() }}
+                        <table>
+                            <tr>
+                                <td>
+                                    <label for="name" class="control-label">Name:</label>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control" id="prod-name" name="product-name"
+                                    value="{{product_data.name if product_data else ''}}" required />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label for="sku" class="control-label">SKU:</label>
+                                </td>
+                                <td>
+                                    <input class="form-control" id="prod-sku" name="product-sku" type="number"
+                                    required />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label for="price" class="control-label">Price:</label>
+                                </td>
+                                <td class="d-inline-flex align-items">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">$</span>
+                                    </div>
+                                    <input class="form-control" type="number" id="prod-price" name="product-price"
+                                        required />
+                                </td>
+                            </tr>
+                        </table>
+                        <div class="container pt-5">
+                            <div class="d-flex justify-content-end">
+                                <div class="px-2">
+                                    <button type="button" class="btn btn-secondary" id="close-modal"
+                                        data-dismiss="modal">Close</button>
+                                </div>
+                                <div>
+                                    <button type="submit" class="btn btn-primary">Add product</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     <p>
         View information for all products that you have added to your business.
         Search for products or sort the products on display.
@@ -109,7 +184,8 @@
         <div class="pb-4">
             <div class="card">
                 <div class="card-body">
-                    <img class="card-img-top" src="https://via.placeholder.com/266x140" alt="Product SKU:{{product.sku}} image">
+                    <img class="card-img-top" src="https://via.placeholder.com/266x140"
+                        alt="Product SKU:{{product.sku}} image">
                     <h5 class="card-title pt-4">{{product.title}}</h5>
                     <div class="card-text">
                         <p>SKU: {{product.sku}} <br>
@@ -133,7 +209,8 @@
                                     </button>
                                 </div>
                                 <div class="modal-body">
-                                    <form class="modal-form" method="POST" action="{{url_for('edit_product', sku = product.sku)}}">
+                                    <form class="modal-form" method="POST"
+                                        action="{{url_for('edit_product', sku = product.sku)}}">
                                         <table>
                                             <tr>
                                                 <td>
@@ -141,28 +218,29 @@
                                                 </td>
                                                 <td>
                                                     <input type="text" class="form-control" id="product-name"
-                                                        name="product-name" value="{{product.title}}" required/>
+                                                        name="product-name" value="{{product.title}}" required />
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <label>SKU:</label>
+                                                    <label for="sku" class="control-label">SKU:</label>
                                                 </td>
                                                 <td>
                                                     <input class="form-control" id="product-sku" name="product-sku"
-                                                        type="number" value="{{product.sku}}" required/>
+                                                        type="number" value="{{product.sku}}" required />
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <label>Price:</label>
+                                                    <label for="price" class="control-label">Price:</label>
                                                 </td>
                                                 <td class="d-inline-flex align-items">
                                                     <div class="input-group-prepend">
                                                         <span class="input-group-text">$</span>
                                                     </div>
-                                                    <input class="form-control" type="number" id="product-price"
-                                                        name="product-price" value="{{product.price}}" required/>
+                                                    <input class="form-control" type="number" step="0.01"
+                                                        id="product-price" name="product-price"
+                                                        value="{{product.price}}" required />
                                                 </td>
                                             </tr>
                                         </table>
@@ -194,4 +272,14 @@
 
 </div>
 
+{% endblock %}
+
+{% block end_scripts %}
+<script>
+    if ("{{product_data}}" !== ''){
+        $(document).ready(function () {
+        $("#newproduct").modal('show');
+    });
+    }
+</script>
 {% endblock %}
