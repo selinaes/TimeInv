@@ -148,7 +148,7 @@ def page_not_found(e):
 @app.before_first_request
 def init_db():
     dbi.cache_cnf()
-    db_to_use = 'fmoya_db' 
+    db_to_use = 'timeinv_db' 
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
