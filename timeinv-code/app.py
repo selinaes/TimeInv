@@ -20,13 +20,9 @@ app.config['TRAP_BAD_REQUEST_ERRORS'] = True
 
 @app.route('/')
 def index():
-    return render_template('main.html',title='Hello')
+    return render_template('main.html')
 
-@app.route('/welcome')
-def welcome():
-    return render_template('welcome.html')
-
-@app.route('/products')
+@app.route('/products', methods = ['GET', 'POST'])
 def products():
     conn = dbi.connect()
     if request.method == 'GET':
@@ -37,7 +33,41 @@ def products():
                 results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
             results = utils.get_all_products(conn)
-        return render_template('products.html', products = results, search = request.args.get('search'))
+        return render_template('products.html', 
+        products = results, 
+        search = request.args.get('search'),
+        open_new_product = 'False')
+    
+    # Request is POST. Add a new product.
+    else:
+        product_exists = utils.sku_exists(conn, request.form['product-sku'])
+        if product_exists:
+            flash("""Error adding new product. 
+            The SKU corresponds to an existing product.""", "error")
+            results = utils.get_all_products(conn)
+            product_data = {'name': request.form['product-name'],
+             'sku': request.form['product-sku'], 'price': request.form['product-price']}
+            return render_template('products.html', products=results, 
+            open_new_product = 'True', product_data = product_data)
+        else:
+            try:
+                curs = dbi.dict_cursor(conn)
+                sql = """insert into product
+                values (%s, %s, %s, %s, %s)"""
+                curs.execute(sql, [request.form['product-sku'], 
+                request.form['product-name'], 
+                request.form['product-price'], 
+                'at1', None]) # Hard-coding last_modified_by until login 
+                conn.commit()
+                flash("The product was sucessfully added.", "success")
+                results = utils.get_all_products(conn)
+                # Open empty modal when done.
+                return render_template('products.html', products=results, product_data={})
+            except:
+                flash("There was an error adding the product. Try again.", "error")
+                results = utils.get_all_products(conn)
+                return render_template('products.html', products=results, product_data={})
+
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
@@ -45,16 +75,63 @@ def edit_product(sku):
     results = utils.get_all_products(conn)
     product_exists = utils.sku_exists(conn, sku)
 
+    # If SKU doesn't exist, throw an error
     if not product_exists:
         return abort(404)
 
+    # Request is GET
     if request.method == 'GET':
         return render_template('product-edit.html', sku = sku, products=results)
+
+    # Request is POST
     else:
-        return render_template('product-edit.html', sku = sku, products=results)
+        # SKU is unchanged
+        new_sku = request.form['product-sku']
+        if new_sku == sku:
+            try:
+                curs = dbi.dict_cursor(conn)
+                sql = """update product 
+                set title = %s, price = %s, last_modified_by = %s
+                where sku = %s"""
+                curs.execute(sql, [request.form['product-name'], 
+                request.form['product-price'], 
+                'at1', sku])
+                conn.commit()
+                flash("The product was sucessfully updated.", "success")
+                results = utils.get_all_products(conn)
+                return render_template('product-edit.html', sku = sku, products=results)
+            except:
+                flash("Error updating the product. Try again.", "error")
+                return render_template('product-edit.html', sku = sku, products=results)
 
+        # SKU changed
+        else:
+            # Check if product sku is used in another product
+            new_sku_exists = utils.sku_exists(conn, request.form['product-sku'])
+            if new_sku_exists:
+                flash("""Error updating the product. The SKU provided already identifies 
+                another product.""", "error")
+                return render_template('product-edit.html', sku = sku, products=results)
+            
+            # If new SKU doesn't already exist
+            try:
+                curs = dbi.dict_cursor(conn)
+                sql = """update product 
+                set sku = %s, title = %s, price = %s, last_modified_by = %s
+                where sku = %s"""
+                curs.execute(sql, [request.form['product-sku'], 
+                request.form['product-name'], 
+                request.form['product-price'], 
+                'at1', sku])
+                conn.commit()
+                flash("The product was sucessfully updated.", "success")
+                results = utils.get_all_products(conn)
+                return render_template('product-edit.html', 
+                sku = request.form['product-sku'], products=results)
 
-
+            except:
+                flash("Error updating the product. Try again.", "error")
+                return render_template('product-edit.html', sku = sku, products=results)
 
 
 
@@ -71,7 +148,7 @@ def page_not_found(e):
 @app.before_first_request
 def init_db():
     dbi.cache_cnf()
-    db_to_use = 'timeinv_db' 
+    db_to_use = 'fmoya_db' 
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
@@ -81,9 +158,9 @@ def transactions():
     curs = dbi.dict_cursor(conn)
     if request.args:
         if request.args.get('search'):
-            results = product_search(conn, request.args.get('by'), request.args.get('search'))
+            results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
         else:
-            results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
+            results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
     else:
         sql = "select sku, title, timestamp from product, transaction using (sku) order by timestamp, sku"
         curs.execute(sql)

@@ -1,4 +1,4 @@
-use timeinv_db; 
+use fmoya_db; 
 
 drop table if exists supplierTerm;
 drop table if exists supplier;
@@ -22,8 +22,8 @@ create table product (
     last_modified_by varchar(10), -- staff username
     image_file_name varchar(100),
     foreign key (last_modified_by) references staff(username)
-        on update restrict
-        on delete restrict
+        on update cascade
+        on delete cascade
 )
 ENGINE = InnoDB;
 
@@ -37,11 +37,11 @@ create table transaction(
     primary key (tid,sku),
     index(timestamp), 
     foreign key (sku) references product(sku)
-        on update restrict
-        on delete restrict,
+        on update cascade
+        on delete cascade,
     foreign key (last_modified_by) references staff(username)
-        on update restrict
-        on delete restrict
+        on update cascade
+        on delete cascade
 )
 ENGINE = InnoDB;
 
@@ -51,8 +51,8 @@ create table supplier(
     last_modified_by varchar(10), -- staff username
     primary key(sid),
     foreign key (last_modified_by) references staff(username)
-        on update restrict
-        on delete restrict
+        on update cascade
+        on delete cascade
 )
 ENGINE = InnoDB;
 
@@ -63,11 +63,11 @@ create table supplierTerm(
     last_modified_by varchar(10), -- staff username
     primary key(sid,sku),
     foreign key (last_modified_by) references staff(username)
-        on update restrict
-        on delete restrict,
+        on update cascade
+        on delete cascade,
     foreign key (sku) references product(sku)
-        on update restrict
-        on delete restrict
+        on update cascade
+        on delete cascade
 )
 ENGINE = InnoDB;
 
