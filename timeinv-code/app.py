@@ -30,12 +30,38 @@ def products():
     if request.method == 'GET':
         if request.args:
             if request.args.get('search'):
-                results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+                results = utils.product_search(conn, request.args.get('by'), 
+                request.args.get('search'))
             else:
-                results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
+                results = utils.product_sort(conn, request.args.get('sort'), 
+                request.args.get('order'))
         else:
             results = utils.get_all_products(conn)
-        return render_template('products.html', products = results, search = request.args.get('search'))
+        return render_template('products.html', 
+        products = results, 
+        search = request.args.get('search'),
+        open_new_product = 'False')
+
+    # Request is POST. Add a new product.
+    else:
+        product_data = {'name': request.form['product-name'],
+        'sku': request.form['product-sku'], 'price': request.form['product-price']}
+        try:
+            utils.product_insert(conn, product_data['sku'], product_data['name'], 
+            product_data['price'], 'at1') # Hard-coding last_modified_by until 
+            # login implemented
+            results = utils.get_all_products(conn)
+            flash("The product was successfully added", "success")
+            return render_template('products.html', products=results, product_data={})
+        except Exception as e:
+            print(str(e.args[1])) # Temporary. Helpful for debugging
+            if ('Duplicate entry' in e.args[1]):
+                flash('Error. The SKU indicated already corresponds to another product.', "error")
+            else:
+                flash('Error adding the product. Please try again.', "error")
+            results = utils.get_all_products(conn)
+            return render_template('products.html', products=results, product_data={})
+
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
@@ -43,20 +69,64 @@ def edit_product(sku):
     results = utils.get_all_products(conn)
     product_exists = utils.sku_exists(conn, sku)
 
+    # If SKU doesn't exist, throw an error
     if not product_exists:
         return abort(404)
 
+    # Request is GET
     if request.method == 'GET':
-        return render_template('product-edit.html', sku = sku, products=results)
+        return render_template('products.html', sku = sku, products=results, edit=True)
+
+    # Request is POST
     else:
-        return render_template('product-edit.html', sku = sku, products=results)
+        # SKU is unchanged
+        new_sku = request.form['product-sku']
+        if new_sku == sku:
+            try:
+                utils.update_product(conn, request.form['product-name'], 
+                request.form['product-price'], 'at1', sku)
+                flash("The product was sucessfully updated.", "success")
+                results = utils.get_all_products(conn)
+                return render_template('products.html', sku = sku, 
+                products=results, edit=True)
+            except Exception as e:
+                flash("Error updating the product. Try again.", "error")
+                return render_template('products.html', sku = sku, 
+                products=results, edit=True)
 
-@app.route('/products/<string:username>')
-def products_addedby(username):
+        # SKU changed
+        else:
+            try:
+                # Hard-coding last_modified_by until login is implemented
+                utils.update_product_new_sku(conn, request.form['product-name'], 
+                request.form['product-price'], 'at1', sku, request.form['product-sku'])
+                flash("The product was sucessfully updated.", "success")
+                results = utils.get_all_products(conn)
+                return render_template('product-edit.html', 
+                sku = request.form['product-sku'], products=results)
+
+            except Exception as e:
+                if 'duplicate entry' in e.args[1]:
+                    flash("""Error updating the product. The SKU provided already identifies 
+                    another product.""", "error")
+                else:
+                    flash("Error updating the product. Try again")
+                return render_template('products.html', sku = sku, products=results,
+                 edit=True)
+            
+
+@app.route('/products/delete/<sku>', methods=['POST'])
+def delete_product(sku):
     conn = dbi.connect()
-    results = utils.products_addedby(conn, username)
-    return jsonify(results)
-
+    try:
+        utils.delete_product_by_sku(conn, sku)
+        flash("The product was sucessfully deleted.", "success")
+        return redirect(url_for('products'))
+    except Exception as e:
+        print(e)
+        flash("Error. The product could not be deleted.", "error")
+        return ('Error')
+        
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
