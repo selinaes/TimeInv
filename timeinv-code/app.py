@@ -18,8 +18,17 @@ app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
 # This gets us better error messages for certain common request errors
 app.config['TRAP_BAD_REQUEST_ERRORS'] = True
 
-@app.route('/')
+@app.route('/', methods = ['GET','POST'])
 def index():
+    conn = dbi.connect()
+    # 'GET' is for filtering for threshold check
+    if request.method == 'GET':
+        if request.args.get('number'):
+            if request.args.get('using') == 'sku':
+            results = utils.inventory_by_sku(conn,request.args.get('search'))
+            elif request.args.get('using') == 'threshold':
+    # 'POST' is for recording new sales
+    # else:
     return render_template('main.html')
 
 @app.route('/products', methods = ['GET', 'POST'])

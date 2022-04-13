@@ -118,3 +118,10 @@ def get_products_below_threshold(conn, threshold):
     results = curs.fetchall()
     return results
 
+
+def inventory_by_sku(conn, query):
+    """
+    Returns the requested sku product and its inventory information
+    """
+    return results
+
