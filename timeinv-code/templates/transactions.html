@@ -89,11 +89,29 @@
     </form>
 </div>
 
+<table class="table">
+    <thead>
+      <tr>
+        <th scope="col">SKU</th>
+        <th scope="col">Title</th>
+        <th scope="col">Last transaction time</th>
+        <th scope="col">Current Inventory</th>
+      </tr>
+    </thead>
+    <tbody>
+        {% for results in transactions%}
+        <tr>
+            <th scope="row">{results.sku}</th>
+            <td>{results.title}</td>
+            <td>{results.timestamp}</td>
+            <td>{results.sum(product)}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+  </table>
+
 <div class="row">
-    {% for transaction in transactions %}
-
-
-    {% endfor %}
+    
 
 </div>
 

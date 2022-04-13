@@ -109,7 +109,7 @@ def get_products_below_threshold(conn, threshold):
 
 def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
-    sql = "sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku"
+    sql = "select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku order by timestamp"
     curs.execute(sql)
     results = curs.fetchall()
     return results
