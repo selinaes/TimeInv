@@ -54,6 +54,7 @@ def products_addedby(conn, staff):
     results = curs.fetchall()
     return results
 
+<<<<<<< HEAD
 # def sku_exists(conn, sku):
 #     """
 #     Returns whether sku exists in the product list
@@ -117,6 +118,15 @@ def transaction_search(conn, search_type, query):
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
+=======
+def product_insert(conn, sku, name, price, staff):
+    curs = dbi.dict_cursor(conn)
+    sql = """insert into product
+    values (%s, %s, %s, %s, %s)"""
+    curs.execute(sql, [sku, name, price, 
+    staff, None]) 
+    conn.commit()
+>>>>>>> 015a3524260e7a41963c0068aef71d8c0b4ed215
 
 def sku_exists(conn, sku):
     """
@@ -141,3 +151,25 @@ def update_product_new_sku(conn, title, price, last_modified_by, og_sku, new_sku
     where sku = %s"""
     curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
     conn.commit()
+
+def delete_product_by_sku(conn, sku):
+    """
+    Delets a product from the database given a sku
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "delete from product where sku = %s"
+    curs.execute(sql, [sku])
+    conn.commit()
+
+def get_products_below_threshold(conn, threshold):
+    """
+    Returns list of products below the given threshold
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """select transaction.sku as sku, title, sum(amount) as total_amount from 
+    transaction inner join product using (sku) group by sku having total_amount < %s
+    """
+    curs.execute(sql, [threshold])
+    results = curs.fetchall()
+    return results
+
