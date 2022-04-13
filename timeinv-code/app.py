@@ -20,13 +20,9 @@ app.config['TRAP_BAD_REQUEST_ERRORS'] = True
 
 @app.route('/')
 def index():
-    return render_template('main.html',title='Hello')
+    return render_template('main.html')
 
-@app.route('/welcome')
-def welcome():
-    return render_template('welcome.html')
-
-@app.route('/products')
+@app.route('/products', methods = ['GET', 'POST'])
 def products():
     conn = dbi.connect()
     if request.method == 'GET':
