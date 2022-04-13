@@ -1,5 +1,5 @@
 from flask import (Flask, render_template, make_response, url_for, request,
-                   redirect, flash, session, send_from_directory, jsonify)
+                   redirect, flash, session, send_from_directory, jsonify, abort)
 from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
@@ -29,42 +29,34 @@ def welcome():
 @app.route('/products')
 def products():
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    search = request.args.get('search') # Indicates that this is a search
-    if request.args:
-        if request.args.get('search'):
-            results = product_search(conn, request.args.get('by'), request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+            else:
+                results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
+            results = utils.get_all_products(conn)
+        return render_template('products.html', products = results, search = request.args.get('search'))
+
+@app.route('/products/edit/<sku>', methods=['GET', 'POST'])
+def edit_product(sku):
+    conn = dbi.connect()
+    results = utils.get_all_products(conn)
+    product_exists = utils.sku_exists(conn, sku)
+
+    if not product_exists:
+        return abort(404)
+
+    if request.method == 'GET':
+        return render_template('product-edit.html', sku = sku, products=results)
     else:
-        results = utils.get_all_products(conn)
-    return render_template('products.html', products = results, search = search)
-
-def product_search(conn, search_type, query):
-    curs = dbi.dict_cursor(conn)
-    # Not using %s for search_type because cannot parametrize column names, only values
-    sql = """select * from product 
-    where """ + search_type + """ like %s order by title"""
-    curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-
-def product_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select * from product order by " + by +  " " + order
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
+        return render_template('product-edit.html', sku = sku, products=results)
 
 @app.route('/products/<string:username>')
 def products_addedby(username):
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    sql = """select * from product where 
-    last_modified_by = %s"""
-    curs.execute(sql, [username])
-    results = curs.fetchall()
+    results = utils.products_addedby(conn, username)
     return jsonify(results)
 
 @app.errorhandler(404)
@@ -78,36 +70,30 @@ def init_db():
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
+
+
 @app.route('/transactions')
 def transactions():
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    if request.args:
-        if request.args.get('search'):
-            results = product_search(conn, request.args.get('by'), request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = transaction_search(conn, request.args.get('by'), request.args.get('search'))
+            else:
+                results = transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = product_sort(conn, request.args.get('sort'), request.args.get('order'))
-    else:
-        sql = "select sku, title, timestamp from product, transaction using (sku) order by timestamp, sku"
-        curs.execute(sql)
-        results = curs.fetchall()
-    return render_template('transactions.html', transaction = results)
+            results = curs.fetchall()
+        return render_template('transactions.html', transaction = results)
 
 def transactions(conn, search_type, query):
     curs = dbi.dict_cursor(conn)
     # Not using %s for search_type because cannot parametrize column names, only values
-    sql = """select product.sku, product.title, transacton.timestamp 
+    sql = """select sku, title, timestamp, sum(amount) 
         from product, transaction
-        using """ + search_type + """ like %s order by order by transaction.timestamp, product.sku"""
+        using (sku)
+        group by sku
+        using """ + search_type + """ like %s order by order by timestamp, sku"""
     curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-
-def transaction_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select sku, title, timestamp from product, transaction using (sku) " + by +  " " + order
-    curs.execute(sql)
     results = curs.fetchall()
     return results
 
