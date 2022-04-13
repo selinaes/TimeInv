@@ -76,7 +76,7 @@ def transactions():
             else:
                 results = transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = curs.fetchall()
+            results = utils.get_all_products(conn)
         return render_template('transactions.html', transaction = results)
 
 if __name__ == '__main__':
