@@ -30,38 +30,12 @@ def products():
     if request.method == 'GET':
         if request.args:
             if request.args.get('search'):
-                results = utils.product_search(conn, request.args.get('by'), 
-                request.args.get('search'))
+                results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
             else:
-                results = utils.product_sort(conn, request.args.get('sort'), 
-                request.args.get('order'))
+                results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
             results = utils.get_all_products(conn)
-        return render_template('products.html', 
-        products = results, 
-        search = request.args.get('search'),
-        open_new_product = 'False')
-
-    # Request is POST. Add a new product.
-    else:
-        product_data = {'name': request.form['product-name'],
-        'sku': request.form['product-sku'], 'price': request.form['product-price']}
-        try:
-            utils.product_insert(conn, product_data['sku'], product_data['name'], 
-            product_data['price'], 'at1') # Hard-coding last_modified_by until 
-            # login implemented
-            results = utils.get_all_products(conn)
-            flash("The product was successfully added", "success")
-            return render_template('products.html', products=results, product_data={})
-        except Exception as e:
-            print(str(e.args[1])) # Temporary. Helpful for debugging
-            if ('Duplicate entry' in e.args[1]):
-                flash('Error. The SKU indicated already corresponds to another product.', "error")
-            else:
-                flash('Error adding the product. Please try again.', "error")
-            results = utils.get_all_products(conn)
-            return render_template('products.html', products=results, product_data={})
-
+        return render_template('products.html', products = results, search = request.args.get('search'))
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
@@ -69,111 +43,43 @@ def edit_product(sku):
     results = utils.get_all_products(conn)
     product_exists = utils.sku_exists(conn, sku)
 
-    # If SKU doesn't exist, throw an error
     if not product_exists:
         return abort(404)
 
-    # Request is GET
     if request.method == 'GET':
-        return render_template('products.html', sku = sku, products=results, edit=True)
-
-    # Request is POST
+        return render_template('product-edit.html', sku = sku, products=results)
     else:
-        # SKU is unchanged
-        new_sku = request.form['product-sku']
-        if new_sku == sku:
-            try:
-                utils.update_product(conn, request.form['product-name'], 
-                request.form['product-price'], 'at1', sku)
-                flash("The product was sucessfully updated.", "success")
-                results = utils.get_all_products(conn)
-                return render_template('products.html', sku = sku, 
-                products=results, edit=True)
-            except Exception as e:
-                flash("Error updating the product. Try again.", "error")
-                return render_template('products.html', sku = sku, 
-                products=results, edit=True)
+        return render_template('product-edit.html', sku = sku, products=results)
 
-        # SKU changed
-        else:
-            try:
-                # Hard-coding last_modified_by until login is implemented
-                utils.update_product_new_sku(conn, request.form['product-name'], 
-                request.form['product-price'], 'at1', sku, request.form['product-sku'])
-                flash("The product was sucessfully updated.", "success")
-                results = utils.get_all_products(conn)
-                return render_template('product-edit.html', 
-                sku = request.form['product-sku'], products=results)
-
-            except Exception as e:
-                if 'duplicate entry' in e.args[1]:
-                    flash("""Error updating the product. The SKU provided already identifies 
-                    another product.""", "error")
-                else:
-                    flash("Error updating the product. Try again")
-                return render_template('products.html', sku = sku, products=results,
-                 edit=True)
-            
-
-@app.route('/products/delete/<sku>', methods=['POST'])
-def delete_product(sku):
+@app.route('/products/<string:username>')
+def products_addedby(username):
     conn = dbi.connect()
-    try:
-        utils.delete_product_by_sku(conn, sku)
-        flash("The product was sucessfully deleted.", "success")
-        return redirect(url_for('products'))
-    except Exception as e:
-        print(e)
-        flash("Error. The product could not be deleted.", "error")
-        return ('Error')
+    results = utils.products_addedby(conn, username)
+    return jsonify(results)
 
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template('error.html'), 404
-
-@app.errorhandler(405)
-def page_not_found_wrong_method(e):
-    return render_template('error.html'), 405
+    return render_template('404.html'), 404
 
 @app.before_first_request
 def init_db():
     dbi.cache_cnf()
-    db_to_use = 'timeinv_db'
+    db_to_use = 'timeinv_db' 
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
 @app.route('/transactions')
 def transactions():
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    if request.args:
-        if request.args.get('search'):
-            results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = transaction_search(conn, request.args.get('by'), request.args.get('search'))
+            else:
+                results = transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
-    else:
-        sql = "select sku, title, timestamp from product, transaction using (sku) order by timestamp, sku"
-        curs.execute(sql)
-        results = curs.fetchall()
-    return render_template('transactions.html', transaction = results)
-
-def transactions(conn, search_type, query):
-    curs = dbi.dict_cursor(conn)
-    # Not using %s for search_type because cannot parametrize column names, only values
-    sql = """select product.sku, product.title, transacton.timestamp 
-        from product, transaction
-        using """ + search_type + """ like %s order by order by transaction.timestamp, product.sku"""
-    curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-
-def transaction_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select sku, title, timestamp from product, transaction using (sku) " + by +  " " + order
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
+            results = utils.get_all_products(conn)
+        return render_template('transactions.html', transaction = results)
 
 if __name__ == '__main__':
     import sys, os
