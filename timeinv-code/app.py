@@ -74,12 +74,12 @@ def transactions():
     if request.method == 'GET':
         if request.args:
             if request.args.get('search'):
-                results = transaction_search(conn, request.args.get('by'), request.args.get('search'))
+                results = utils.transaction_search(conn, request.args.get('by'), request.args.get('search'))
             else:
-                results = transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
+                results = utils.transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = utils.get_all_products(conn)
-        return render_template('transactions.html', transaction = results)
+            results = utils.get_all_transactions(conn)
+        return render_template('transactions.html', transactions = results)
 
 if __name__ == '__main__':
     import sys, os

@@ -99,12 +99,12 @@
       </tr>
     </thead>
     <tbody>
-        {% for results in transactions%}
+        {% for results in transactions %}
         <tr>
-            <th scope="row">{results.sku}</th>
-            <td>{results.title}</td>
-            <td>{results.timestamp}</td>
-            <td>{results.sum(product)}</td>
+            <td>{{results.sku}}</td>
+            <td>{{results.title}}</td>
+            <td>{{results.timestamp}}</td>
+            <td>{{results.amount}}</td>
         </tr>
         {% endfor %}
     </tbody>
