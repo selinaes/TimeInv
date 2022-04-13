@@ -2,7 +2,60 @@
 
 {% block main_content %}
 <div>
-    <h1>Transactions</h1>
+    <h1>Check Realtime Inventory</h1>
 </div>
+
+<!-- The form for filtering inventory: by sku or by threshold -->
+<form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('index')}}">
+    <table>
+        <tr>
+            <td><label for="using">Using</label></td>
+            <td>
+                <select required id="using" name="using">
+                    <option value="">Choose one</option>
+                    <option value="sku">Product SKU</option>
+                    <option value="threshold">Threshold</option>
+                </select>
+            </td>
+        </tr>
+    </table>
+    <div class="inline">
+        <label class="inline-elem-r" for="num" id="num-label"> of (enter number) </label>
+        <input class="form-control mr-sm-2" type="number" id="number" name="number" aria-label="Number">
+    </div>
+    <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Get Result</button>
+    </span>
+</form>
+
+<!-- The table showing product info and inventory -->
+<table class="table">
+    <thead>
+      <tr>
+        <th scope="col">SKU</th>
+        <th scope="col">Title</th>
+        <th scope="col">Last transaction time</th>
+        <th scope="col">Current Inventory</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">1</th>
+        <td>Mark</td>
+        <td>Otto</td>
+        <td>@mdo</td>
+      </tr>
+      <tr>
+        <th scope="row">2</th>
+        <td>Jacob</td>
+        <td>Thornton</td>
+        <td>@fat</td>
+      </tr>
+      <tr>
+        <th scope="row">3</th>
+        <td colspan="2">Larry the Bird</td>
+        <td>@twitter</td>
+      </tr>
+    </tbody>
+  </table>
 
 {% endblock %}
