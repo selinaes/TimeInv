@@ -99,6 +99,14 @@ td label {
     padding-left: 0.5em;
 }
 
+.bolded {
+    font-weight: bold;
+}
+
+.fit-content {
+    width: fit-content;
+}
+
 @media only screen and (max-width: 600px) {
     .main-page-form {
         width: 100%;

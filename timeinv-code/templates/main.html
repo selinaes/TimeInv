@@ -58,4 +58,71 @@
     </tbody>
   </table>
 
+
+<div class="container-fluid">
+    <div class="pb-2">
+        <h1>Dashboard</h1>
+        <p>Check and the availability levels of the products in your inventory.</p>
+    </div>
+    <div class="py-2">
+        <div class="d-flex align-items-start justify-content-between pb-4">
+            <h2 class="h4">Products below threshold</h2>
+            <button type="button" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-arrow-clockwise" viewbox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+                    <path
+                        d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
+                Re-run availability check
+            </button>
+        </div>
+        <div>
+            <table class="table table-striped">
+                <tr>
+                    <th>SKU</th>
+                    <th>Product Name</th>
+                    <th>Amount</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>Product</td>
+                    <td>10</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="container pt-4 px-0">
+        <div class="row">
+            <div class="col">
+                <h2 class="h4 pb-2">Modify threshold</h2>
+                <p>
+                    Update the number of units for a product below which you want to trigger an alert
+                    in the availability check.
+                </p>
+                <div class="border border-primary rounded-3 p-3 fit-content">
+                    <form>
+                        <label for="threshold" class="control-label">New threshold</label>
+                        <!-- Hard-coding value of input for now-->
+                        <input type="number" class="form-control" id="threshold" name="threshold" value="100"
+                            required />
+                        <button type="submit" class="btn btn-primary mt-2">Update threshold</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col">
+                <h2 class="h4 pb-2">Register a sale order</h2>
+                <form>
+                    <label for="sale-sku" class="control-label">SKU</label>
+                    <input type="number" class="form-control" id="sale-sku" name="sale-sku" required />
+                    <label for="sale-quantity" class="control-label">Quantity</label>
+                    <input type="number" class="form-control" id="sale-quantity" name="sale-quantity" required />
+
+                    <button type="button" class="btn btn-primary mt-2">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
