@@ -54,71 +54,6 @@ def products_addedby(conn, staff):
     results = curs.fetchall()
     return results
 
-<<<<<<< HEAD
-# def sku_exists(conn, sku):
-#     """
-#     Returns whether sku exists in the product list
-#     """
-#     curs = dbi.dict_cursor(conn)
-#     sql = """select sku from product where 
-#     sku = %s"""
-#     curs.execute(sql, [sku])
-#     results = curs.fetchall()
-#     return len(results) > 0
-
-# def sku_exists(conn, sku):
-#     """
-#     Returns whether sku exists in the product list
-#     """
-#     curs = dbi.dict_cursor(conn)
-#     sql = """select sku from product where 
-#     sku = %s"""
-#     curs.execute(sql, [sku])
-#     results = curs.fetchall()
-#     return len(results) > 0
-
-def update_product(conn, title, price, last_modified_by, sku):
-    """
-    Updates a product in the timeinv_db database without changes to sku
-    """
-    curs = dbi.dict_cursor(conn)
-    sql = """update product 
-    set title = %s, price = %s, last_modified_by = %s
-    where sku = %s"""
-    curs.execute(sql, [sku, title, price, last_modified_by])
-    conn.commit()
-
-
-def get_all_transactions(conn):
-    """
-    Returns all transactions in the current db
-    """
-    curs = dbi.dict_cursor(conn)
-    sql = "select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku order by timestamp, sku"
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
-
-def transaction_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku " + by +  " " + order
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
-
-
-def transaction_search(conn, search_type, query):
-    """
-    Returns a list of all products that contain the query string
-    """
-    curs = dbi.dict_cursor(conn)
-    sql = """select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku
-    where """ + search_type + """ like %s order by title"""
-    curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-=======
 def product_insert(conn, sku, name, price, staff):
     curs = dbi.dict_cursor(conn)
     sql = """insert into product
@@ -126,7 +61,6 @@ def product_insert(conn, sku, name, price, staff):
     curs.execute(sql, [sku, name, price, 
     staff, None]) 
     conn.commit()
->>>>>>> 015a3524260e7a41963c0068aef71d8c0b4ed215
 
 def sku_exists(conn, sku):
     """
@@ -173,3 +107,23 @@ def get_products_below_threshold(conn, threshold):
     results = curs.fetchall()
     return results
 
+
+
+def transaction_sort(conn, by, order):
+    curs = dbi.dict_cursor(conn)
+    # Prepared queries can only be used for values, not column names or order
+    sql = "select sku, title, timestamp from product, transaction using (sku) " + by +  " " + order
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def transaction_search(conn, search_type, query):
+    """
+    Returns a list of all products that contain the query string
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """select sku, title, timestamp from product, transaction using (sku) 
+    where """ + search_type + """ like %s order by title"""
+    curs.execute(sql, ['%' + query + '%'])
+    results = curs.fetchall()
+    return results
