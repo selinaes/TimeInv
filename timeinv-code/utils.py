@@ -106,7 +106,7 @@ def delete_product_by_sku(conn, sku):
     curs.execute(sql, [sku])
     conn.commit()
 
-def get_products_below_threshold(conn, threshold):
+def inventory_below_threshold(conn, threshold):
     """
     Returns list of products below the given threshold
     """
@@ -119,9 +119,15 @@ def get_products_below_threshold(conn, threshold):
     return results
 
 
-def inventory_by_sku(conn, query):
+def inventory_by_sku(conn, sku):
     """
     Returns the requested sku product and its inventory information
     """
+    curs = dbi.dict_cursor(conn)
+    sql = """select transaction.sku as sku, title, sum(amount) as total_amount from 
+    transaction inner join product using (sku) group by sku having total_amount < %s
+    """
+    curs.execute(sql, [threshold])
+    results = curs.fetchone()
     return results
 

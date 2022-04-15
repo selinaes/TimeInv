@@ -27,6 +27,7 @@ def index():
             if request.args.get('using') == 'sku':
             results = utils.inventory_by_sku(conn,request.args.get('search'))
             elif request.args.get('using') == 'threshold':
+            results = utils.inventory_under_threshold(conn,request.args.get('search'))
     # 'POST' is for recording new sales
     # else:
     return render_template('main.html')
