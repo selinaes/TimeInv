@@ -124,7 +124,7 @@ def inventory_by_sku(conn, sku):
 
 def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
-    sql = "select sku, title, timestamp, sum(amount) as amount from product inner join transaction using (sku) group by sku order by timestamp"
+    sql = "select tid, sku, title, timestamp, amount from product inner join transaction using (sku) order by timestamp DESC"
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -132,7 +132,7 @@ def get_all_transactions(conn):
 def transaction_sort(conn, by, order):
     curs = dbi.dict_cursor(conn)
     # Prepared queries can only be used for values, not column names or order
-    sql = "select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku" + by +  " " + order
+    sql = "select tid, sku, title, timestamp, amount from product inner join transaction using (sku)" + by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
