@@ -43,7 +43,7 @@
         View information for all transactions that you have added to your business.
         Search for or sort transactions on display.
     </p>
-    <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('transaction')}}">
+    <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('transactions')}}">
         <div class="inline">
             <label class="inline-elem-r" for="search" id="search-label">Search</label>
             <input class="form-control mr-sm-2" type="text" id="search" name="search" aria-label="Search">
@@ -64,7 +64,7 @@
         <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
         </span>
     </form>
-    <form class="sorting" method="GET" action="{{url_for('transaction')}}">
+    <form class="sorting" method="GET" action="{{url_for('transactions')}}">
         <table>
             <tr>
                 <td><label for="sort">Sort by</label></td>
@@ -89,23 +89,29 @@
     </form>
 </div>
 
-<div class="row">
-    {% for transaction in transaction %}
-    <div class="col-sm-3">
-        <div class="card">
-            <div class="card-body">
-                <img class="card-img-top" src="https://via.placeholder.com/266x140" alt="Card image cap">
-                <h5 class="card-title">{{product.title}}</h5>
-                <div class="card-text">
-                    <p>SKU: {{product.sku}} <br>
-                    </p>
-                </div>
-                <a href="#" class="btn btn-primary">Edit</a>
-            </div>
-        </div>
-    </div>
+<table class="table">
+    <thead>
+      <tr>
+        <th scope="col">SKU</th>
+        <th scope="col">Title</th>
+        <th scope="col">Last transaction time</th>
+        <th scope="col">Current Inventory</th>
+      </tr>
+    </thead>
+    <tbody>
+        {% for results in transactions %}
+        <tr>
+            <td>{{results.sku}}</td>
+            <td>{{results.title}}</td>
+            <td>{{results.timestamp}}</td>
+            <td>{{results.amount}}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+  </table>
 
-    {% endfor %}
+<div class="row">
+    
 
 </div>
 

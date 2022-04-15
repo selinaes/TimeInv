@@ -17,6 +17,8 @@ app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
 
 # This gets us better error messages for certain common request errors
 app.config['TRAP_BAD_REQUEST_ERRORS'] = True
+app.config['UPLOADS'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 
 @app.route('/', methods = ['GET','POST'])
 def index():
@@ -134,54 +136,30 @@ def delete_product(sku):
         print(e)
         flash("Error. The product could not be deleted.", "error")
         return ('Error')
-
+        
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template('error.html'), 404
-
-@app.errorhandler(405)
-def page_not_found_wrong_method(e):
-    return render_template('error.html'), 405
+    return render_template('404.html'), 404
 
 @app.before_first_request
 def init_db():
     dbi.cache_cnf()
-    db_to_use = 'timeinv_db'
+    db_to_use = 'timeinv_db' 
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
 @app.route('/transactions')
 def transactions():
     conn = dbi.connect()
-    curs = dbi.dict_cursor(conn)
-    if request.args:
-        if request.args.get('search'):
-            results = utils.product_search(conn, request.args.get('by'), request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = utils.transaction_search(conn, request.args.get('by'), request.args.get('search'))
+            else:
+                results = utils.transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
         else:
-            results = utils.product_sort(conn, request.args.get('sort'), request.args.get('order'))
-    else:
-        sql = "select sku, title, timestamp from product, transaction using (sku) order by timestamp, sku"
-        curs.execute(sql)
-        results = curs.fetchall()
-    return render_template('transactions.html', transaction = results)
-
-def transactions(conn, search_type, query):
-    curs = dbi.dict_cursor(conn)
-    # Not using %s for search_type because cannot parametrize column names, only values
-    sql = """select product.sku, product.title, transacton.timestamp 
-        from product, transaction
-        using """ + search_type + """ like %s order by order by transaction.timestamp, product.sku"""
-    curs.execute(sql, ['%' + query + '%'])
-    results = curs.fetchall()
-    return results
-
-def transaction_sort(conn, by, order):
-    curs = dbi.dict_cursor(conn)
-    # Prepared queries can only be used for values, not column names or order
-    sql = "select sku, title, timestamp from product, transaction using (sku) " + by +  " " + order
-    curs.execute(sql)
-    results = curs.fetchall()
-    return results
+            results = utils.get_all_transactions(conn)
+        return render_template('transactions.html', transactions = results)
 
 if __name__ == '__main__':
     import sys, os

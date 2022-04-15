@@ -8,10 +8,8 @@ import cs304dbi as dbi
 def get_all_products(conn):
     """
     Returns all products in the current db
-
     Parameters:
         conn: a connection object
-
     Returns:
         A list of dictionaries, where each dictionary is an object
     """
@@ -69,20 +67,11 @@ def sku_exists(conn, sku):
     Returns whether sku exists in the product list
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select sku from product where 
+    sql = """select sku from transaction where 
     sku = %s"""
     curs.execute(sql, [sku])
     results = curs.fetchall()
     return len(results) > 0
-
-def update_product(conn, title, price, last_modified_by, sku):
-    """
-    Updates a product in the timeinv_db database without changes to sku
-    """
-    curs = dbi.dict_cursor(conn)
-    sql = """update product 
-    set title = %s, price = %s, last_modified_by = %s
-    where sku = %s"""
     curs.execute(sql, [title, price, last_modified_by, sku])
     conn.commit()
 
@@ -131,3 +120,28 @@ def inventory_by_sku(conn, sku):
     results = curs.fetchone()
     return results
 
+def get_all_transactions(conn):
+    curs = dbi.dict_cursor(conn)
+    sql = "select sku, title, timestamp, sum(amount) as amount from product inner join transaction using (sku) group by sku order by timestamp"
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def transaction_sort(conn, by, order):
+    curs = dbi.dict_cursor(conn)
+    # Prepared queries can only be used for values, not column names or order
+    sql = "select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku" + by +  " " + order
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def transaction_search(conn, search_type, query):
+    """
+    Returns a list of all products that contain the query string
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku
+    where """ + search_type + """ like %s order by title"""
+    curs.execute(sql, ['%' + query + '%'])
+    results = curs.fetchall()
+    return results
