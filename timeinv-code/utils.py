@@ -132,7 +132,7 @@ def get_all_transactions(conn):
 def transaction_sort(conn, by, order):
     curs = dbi.dict_cursor(conn)
     # Prepared queries can only be used for values, not column names or order
-    sql = "select tid, sku, title, timestamp, amount from product inner join transaction using (sku)" + by +  " " + order
+    sql = "select transaction.tid, transaction.sku, product.title, transaction.timestamp, transaction.amount from product, transaction where product.sku = transaction.sku order by" + by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -142,7 +142,7 @@ def transaction_search(conn, search_type, query):
     Returns a list of all products that contain the query string
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select sku, title, timestamp, sum(amount) from product, transaction using (sku) group by sku
+    sql = """select transaction.tid, transaction.sku, product.title, transaction.timestamp, transaction.amount from product, transaction where product.sku = transaction.sku
     where """ + search_type + """ like %s order by title"""
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
