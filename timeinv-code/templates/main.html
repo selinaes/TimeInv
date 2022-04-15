@@ -21,7 +21,7 @@
     </table>
     <div class="inline">
         <label class="inline-elem-r mx-2" for="number" id="num-label"> of (enter number) </label>
-        <input class="form-control w-75 mr-sm-2" type="number" id="number" name="number" aria-label="Number">
+        <input required class="form-control w-75 mr-sm-2" type="number" id="number" name="number" aria-label="Number">
     </div>
     <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Get Result</button>
     </span>
@@ -38,23 +38,14 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <th scope="row">1</th>
-        <td>Mark</td>
-        <td>Otto</td>
-        <td>@mdo</td>
-      </tr>
-      <tr>
-        <th scope="row">2</th>
-        <td>Jacob</td>
-        <td>Thornton</td>
-        <td>@fat</td>
-      </tr>
-      <tr>
-        <th scope="row">3</th>
-        <td colspan="2">Larry the Bird</td>
-        <td>@twitter</td>
-      </tr>
+        {% for result in results %}
+        <tr>
+            <td>{{result.sku}}</td>
+            <td>{{result.title}}</td>
+            <td>{{result.latesttime}}</td>
+            <td>{{result.inventory}}</td>
+        </tr>
+        {% endfor %}
     </tbody>
   </table>
 

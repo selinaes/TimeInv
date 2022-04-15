@@ -100,8 +100,8 @@ def inventory_below_threshold(conn, threshold):
     Returns list of products below the given threshold
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select transaction.sku as sku, title, sum(amount) as total_amount from 
-    transaction inner join product using (sku) group by sku having total_amount < %s
+    sql = """select sku, title, max(timestamp) as latesttime, sum(amount) as inventory from 
+    transaction inner join product using (sku) group by sku having inventory < %s
     """
     curs.execute(sql, [threshold])
     results = curs.fetchall()
@@ -113,11 +113,13 @@ def inventory_by_sku(conn, sku):
     Returns the requested sku product and its inventory information
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select transaction.sku as sku, title, sum(amount) as total_amount from 
-    transaction inner join product using (sku) group by sku having total_amount < %s
+    sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory 
+    FROM product INNER JOIN transaction 
+    USING (sku) 
+    WHERE sku = %s
     """
-    curs.execute(sql, [threshold])
-    results = curs.fetchone()
+    curs.execute(sql, [sku])
+    results = curs.fetchall()
     return results
 
 def get_all_transactions(conn):

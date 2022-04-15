@@ -23,16 +23,17 @@ app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 @app.route('/', methods = ['GET','POST'])
 def index():
     conn = dbi.connect()
+    results = [{'sku': 'tbd', 'title': "Product's Name", 'latesttime': 'DateTime', 'inventory': '0'}]
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
-        if request.args.get('number'):
-            if request.args.get('using') == 'sku':
-            results = utils.inventory_by_sku(conn,request.args.get('search'))
-            elif request.args.get('using') == 'threshold':
-            results = utils.inventory_under_threshold(conn,request.args.get('search'))
+        if request.args.get('using') == 'sku':
+            results = utils.inventory_by_sku(conn,request.args.get('number'))
+        elif request.args.get('using') == 'threshold':
+            results = utils.inventory_below_threshold(conn,request.args.get('number'))
     # 'POST' is for recording new sales
     # else:
-    return render_template('main.html')
+    #     results = utils.inventory_by_sku(conn,41)
+    return render_template('main.html',results = results)
 
 @app.route('/products', methods = ['GET', 'POST'])
 def products():
