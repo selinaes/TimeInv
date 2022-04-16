@@ -57,8 +57,8 @@ def products_addedby(conn, staff):
 def product_insert(conn, sku, name, price, staff):
     curs = dbi.dict_cursor(conn)
     sql = """insert into product
-    values (%s, %s, %s, %s, %s)"""
-    curs.execute(sql, [sku, name, price, 
+    values (%s, %s, %s, %s, %s, %s)"""
+    curs.execute(sql, [sku, name, price, 0, 
     staff, None]) 
     conn.commit()
 
