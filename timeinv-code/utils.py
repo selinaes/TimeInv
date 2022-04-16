@@ -122,6 +122,27 @@ def inventory_by_sku(conn, sku):
     results = curs.fetchall()
     return results
 
+def change_threshold(conn, sku, threshold):
+    """
+    Change the warning threshold of a product in the timeinv_db database
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """update product 
+    set threshold = %s 
+    where sku = %s"""
+    curs.execute(sql, [threshold, sku])
+    conn.commit()
+
+def record_sale(conn, sku, amount, timestamp, last_modified_by):
+    """
+    Record a sale in transaction table in the timeinv_db database
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """insert into transaction
+    (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
+    curs.execute(sql, [timestamp, sku, amount, last_modified_by])
+    conn.commit()
+
 def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
     sql = "select tid, sku, title, timestamp, amount from product inner join transaction using (sku) order by timestamp DESC"

@@ -88,28 +88,30 @@
             <div class="col">
                 <h2 class="h4 pb-2">Modify threshold</h2>
                 <p>
-                    Update the number of units for a product below which you want to trigger an alert
-                    in the availability check.
+                    Update the amount of a product below which you want to trigger an alert in the availability check.
                 </p>
-                <div class="border border-primary rounded-3 p-3 fit-content">
-                    <form>
-                        <label for="threshold" class="control-label">New threshold</label>
-                        <!-- Hard-coding value of input for now-->
-                        <input type="number" class="form-control" id="threshold" name="threshold" value="100"
-                            required />
-                        <button type="submit" class="btn btn-primary mt-2">Update threshold</button>
-                    </form>
-                </div>
+                <form class="form-horizontal" method="POST" action="{{url_for('index')}}">
+                    <div class="row border border-primary rounded-3 p-3 fit-content">
+                        <div class="col">
+                            <label for="threshold-sku" class="control-label">SKU</label>
+                            <input type="number" class="form-control" id="threshold-sku" name="threshold-sku" required />
+                            <button type="submit" name="threshold-form" class="btn btn-primary mt-2">Update threshold</button>
+                        </div>
+                        <div class="col">
+                            <label for="threshold" class="control-label">New threshold</label>
+                            <input type="number" class="form-control" id="threshold" name="threshold" required />
+                        </div>
+                    </div>
+                </form>
             </div>
             <div class="col">
                 <h2 class="h4 pb-2">Register a sale order</h2>
-                <form>
+                <form method="POST" action="{{url_for('index')}}">
                     <label for="sale-sku" class="control-label">SKU</label>
                     <input type="number" class="form-control" id="sale-sku" name="sale-sku" required />
                     <label for="sale-quantity" class="control-label">Quantity</label>
                     <input type="number" class="form-control" id="sale-quantity" name="sale-quantity" required />
-
-                    <button type="button" class="btn btn-primary mt-2">Submit</button>
+                    <button type="submit" name="sale-form" class="btn btn-primary mt-2">Submit</button>
                 </form>
             </div>
         </div>

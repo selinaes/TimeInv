@@ -7,6 +7,7 @@ import cs304dbi as dbi
 import utils 
 
 import random
+import datetime
 
 app.secret_key = 'your secret here'
 # replace that with a random key
@@ -23,16 +24,26 @@ app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 @app.route('/', methods = ['GET','POST'])
 def index():
     conn = dbi.connect()
-    results = [{'sku': 'tbd', 'title': "Product's Name", 'latesttime': 'DateTime', 'inventory': '0'}]
+    results = [{'sku': 'tbd', 'title': "Product's Name", 'latesttime': 'datetime', 'inventory': '0'}]
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
         if request.args.get('using') == 'sku':
             results = utils.inventory_by_sku(conn,request.args.get('number'))
         elif request.args.get('using') == 'threshold':
             results = utils.inventory_below_threshold(conn,request.args.get('number'))
-    # 'POST' is for recording new sales
-    # else:
-    #     results = utils.inventory_by_sku(conn,41)
+    # 'POST' is for 1.Modify Threshold 2.recording new sales
+    else:
+        if "threshold-form" in request.form:
+            threshold_data = {
+                'threshold': request.form['threshold'],
+                'sku': request.form['threshold-sku']}
+            utils.change_threshold(conn, threshold_data['sku'], threshold_data['threshold'])
+        elif "sale-form" in request.form:
+            sale_data = {
+                'amount': request.form['sale-quantity'],
+                'sku': request.form['sale-sku']}
+            # add logged-in staff detail & pass it to record_sale
+            utils.record_sale(conn, sale_data['sku'], sale_data['amount'], datetime.datetime.now(), 'ad1')
     return render_template('main.html',results = results)
 
 @app.route('/products', methods = ['GET', 'POST'])
