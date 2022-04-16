@@ -33,17 +33,20 @@ def index():
             results = utils.inventory_below_threshold(conn,request.args.get('number'))
     # 'POST' is for 1.Modify Threshold 2.recording new sales
     else:
-        if "threshold-form" in request.form:
-            threshold_data = {
-                'threshold': request.form['threshold'],
-                'sku': request.form['threshold-sku']}
-            utils.change_threshold(conn, threshold_data['sku'], threshold_data['threshold'])
-        elif "sale-form" in request.form:
-            sale_data = {
-                'amount': request.form['sale-quantity'],
-                'sku': request.form['sale-sku']}
-            # add logged-in staff detail & pass it to record_sale
-            utils.record_sale(conn, sale_data['sku'], sale_data['amount'], datetime.datetime.now(), 'ad1')
+        try:
+            if "threshold-form" in request.form:
+                threshold_data = {
+                    'threshold': request.form['threshold'],
+                    'sku': request.form['threshold-sku']}
+                utils.change_threshold(conn, threshold_data['sku'], threshold_data['threshold'])
+            elif "sale-form" in request.form:
+                sale_data = {
+                    'amount': request.form['sale-quantity'],
+                    'sku': request.form['sale-sku']}
+                # add logged-in staff detail & pass it to record_sale
+                utils.record_sale(conn, sale_data['sku'], sale_data['amount'], datetime.datetime.now(), 'ad1')
+        except Exception as e:
+            flash("Error processing form. Try again.", "error")
     return render_template('main.html',results = results)
 
 @app.route('/products', methods = ['GET', 'POST'])
@@ -151,7 +154,7 @@ def delete_product(sku):
         
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template('404.html'), 404
+    return render_template('error.html'), 404
 
 @app.before_first_request
 def init_db():
