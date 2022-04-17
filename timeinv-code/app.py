@@ -26,10 +26,13 @@ def index():
     results = [{'sku': 'tbd', 'title': "Product's Name", 'latesttime': 'datetime', 'inventory': '0'}]
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
-        if request.args.get('using') == 'sku':
-            results = utils.inventory_by_sku(conn,request.args.get('number'))
-        elif request.args.get('using') == 'threshold':
-            results = utils.inventory_below_threshold(conn,request.args.get('number'))
+        if "check-all" in request.args:
+            results = utils.filter_all_by_threshold(conn)
+        else:
+            if request.args.get('using') == 'sku':
+                results = utils.inventory_by_sku(conn,request.args.get('number'))
+            elif request.args.get('using') == 'threshold':
+                results = utils.inventory_below_threshold(conn,request.args.get('number'))
     # 'POST' is for 1.Modify Threshold 2.recording new sales
     else:
         try:
