@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
 
 {% block main_content %}
 <div>
     <h1>Check Realtime Inventory</h1>
     <p>Check and the availability levels of the products in your inventory.</p>
+    {{ show_messages_filtered() }}
 </div>
 
 <!-- The form for filtering inventory: by sku or by threshold -->
@@ -26,16 +28,15 @@
         <button class="btn btn-primary mx-2 my-2 my-sm-0" type="submit">Get Result</button>
     </div>
 </form>
-
 <!-- The table showing product info and inventory -->
 <table class="table">
     <thead>
-      <tr>
-        <th scope="col">SKU</th>
-        <th scope="col">Title</th>
-        <th scope="col">Last transaction time</th>
-        <th scope="col">Current Inventory</th>
-      </tr>
+        <tr>
+            <th scope="col">SKU</th>
+            <th scope="col">Title</th>
+            <th scope="col">Last transaction time</th>
+            <th scope="col">Current Inventory</th>
+        </tr>
     </thead>
     <tbody>
         {% for result in results %}
@@ -47,7 +48,7 @@
         </tr>
         {% endfor %}
     </tbody>
-  </table>
+</table>
 
   <form method="GET" action="{{url_for('index')}}">
     <div class="d-flex align-items-start justify-content-between pb-4">
@@ -75,8 +76,10 @@
                     <div class="row border border-primary rounded-3 p-3 fit-content">
                         <div class="col">
                             <label for="threshold-sku" class="control-label">SKU</label>
-                            <input type="number" class="form-control" id="threshold-sku" name="threshold-sku" required />
-                            <button type="submit" name="threshold-form" class="btn btn-outline-primary mt-2">Update threshold</button>
+                            <input type="number" class="form-control" id="threshold-sku" name="threshold-sku"
+                                required />
+                            <button type="submit" name="threshold-form" class="btn btn-outline-primary mt-2">Update
+                                threshold</button>
                         </div>
                         <div class="col">
                             <label for="threshold" class="control-label">New threshold</label>
