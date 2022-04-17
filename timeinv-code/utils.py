@@ -11,7 +11,8 @@ def get_all_products(conn):
     Parameters:
         conn: a connection object
     Returns:
-        A list of dictionaries, where each dictionary is an object
+        A list of dictionaries, where each dictionary represents
+        a product
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by title"
@@ -29,7 +30,7 @@ def product_sort(conn, by, order):
         order (string): asc or desc for ascending or descending order
     Returns:
         A list of dictionaries, where each dictionary is a product object, 
-        sorted in asc or desc order for the given column by
+        sorted in asc or desc order for the given column
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by " + by +  " " + order
@@ -41,6 +42,17 @@ def product_sort(conn, by, order):
 def product_search(conn, search_type, query):
     """
     Returns a list of all products that contain the query string
+    in the given search_type column
+
+    Parameters:
+        conn: a connection object
+        search_type (string): column to compare the query to
+        query (string): string to search in the search_type column
+
+    Returns:
+        A list of dictionaries that contain the query string
+        in the search_type column, where each dictionary is a 
+        product object.
     """
     curs = dbi.dict_cursor(conn)
     sql = """select * from product 
@@ -52,7 +64,16 @@ def product_search(conn, search_type, query):
 
 def products_addedby(conn, staff):
     """
-    Returns a list of all products that were added by a specific staff member
+    Returns a list of all products that were added by a 
+    specific staff member
+
+    Parameters:
+        conn: a connection object
+        staff (string): the username of the staff 
+
+    Returns:
+        A list of dictionaries, where each dictionary is a 
+        product object that was added by the given staff member.
     """
     curs = dbi.dict_cursor(conn)
     sql = """select * from product where 
@@ -62,6 +83,18 @@ def products_addedby(conn, staff):
     return results
 
 def product_insert(conn, sku, name, price, staff):
+    """
+    Returns a list of all products that were added by a 
+    specific staff member
+
+    Parameters:
+        conn: a connection object
+        staff (string): the username of the staff 
+
+    Returns:
+        A list of dictionaries, where each dictionary is a 
+        product object that was added by the given staff member.
+    """
     curs = dbi.dict_cursor(conn)
     sql = """insert into product
     values (%s, %s, %s, %s, %s, %s)"""
@@ -71,7 +104,17 @@ def product_insert(conn, sku, name, price, staff):
 
 def sku_exists(conn, sku):
     """
-    Returns whether sku exists in the product list
+    Returns a boolean indicating whether a product
+    with the given sku exists
+
+    Parameters:
+        conn: a connection object
+        sku (int): product sku to be searched
+
+    Returns:
+        A boolean indicating whether a product
+        with the given sku exists (True if it exists,
+        False if it doesn't).
     """
     curs = dbi.dict_cursor(conn)
     sql = """select sku from transaction where 
@@ -95,6 +138,18 @@ def update_product(conn, title, price, last_modified_by, sku):
 def update_product_new_sku(conn, title, price, last_modified_by, og_sku, new_sku):
     """
     Updates a product in the timeinv_db database with a new sku
+
+    Parameters:
+        conn: a connection object
+        title (string): new product title
+        price (float): new product price
+        last_modified_by (string): username of staff that is
+        updating the product
+        og_sku (int): original product sku
+        new_sku (int): new product sku
+
+    Returns:
+        None
     """
     curs = dbi.dict_cursor(conn)
     sql = """update product 
@@ -105,7 +160,14 @@ def update_product_new_sku(conn, title, price, last_modified_by, og_sku, new_sku
 
 def delete_product_by_sku(conn, sku):
     """
-    Delets a product from the database given a sku
+    Delets a product from the database with the given sku.
+
+    Parameters:
+        conn: a connection object
+        sku (int): sku of product to be deleted
+
+    Returns:
+        None
     """
     curs = dbi.dict_cursor(conn)
     sql = "delete from product where sku = %s"
