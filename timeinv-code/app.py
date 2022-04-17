@@ -25,17 +25,22 @@ def index():
     conn = dbi.connect()
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
-        if request.args.get('using') == 'sku':
-            results = utils.inventory_by_sku(conn,request.args.get('number'))
-            if len(results) == 1 and results[0]['sku'] == None:
-                results = []
-                flash("No products found for the given SKU", "error")
-        elif request.args.get('using') == 'threshold':
-            results = utils.inventory_below_threshold(conn,request.args.get('number'))
-            if len(results) == 0:
-                flash("No products found for the given threshold", "error")
-        return render_template('main.html')
-    # 'POST' is for 1.Modify Threshold 2.recording new sales
+        if "check-all" in request.args:
+            results = utils.filter_all_by_threshold(conn)
+        else: 
+            # Search by SKU
+            if request.args.get('using') == 'sku':
+                results = utils.inventory_by_sku(conn,request.args.get('number'))
+                if len(results) == 1 and results[0]['sku'] == None:
+                    results = []
+                    flash("No products found for the given SKU", "error")
+            # Search by threshold
+            elif request.args.get('using') == 'threshold':
+                results = utils.inventory_below_threshold(conn,request.args.get('number'))
+                if len(results) == 0:
+                    flash("No products found for the given threshold", "error")
+
+    # 'POST' is for 1. Modify Threshold 2. recording new sales
     else:
         try:
             if "threshold-form" in request.form:

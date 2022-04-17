@@ -133,6 +133,18 @@ def inventory_by_sku(conn, sku):
     print(results)
     return results
 
+def filter_all_by_threshold(conn):
+    """
+    Filter through all products and return those under threshold & current inventory
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory, threshold 
+    FROM transaction INNER JOIN product USING (sku) GROUP BY sku HAVING inventory < threshold
+    """
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
 def change_threshold(conn, sku, threshold):
     """
     Change the warning threshold of a product in the timeinv_db database
