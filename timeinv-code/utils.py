@@ -130,6 +130,7 @@ def inventory_by_sku(conn, sku):
     """
     curs.execute(sql, [sku])
     results = curs.fetchall()
+    print(results)
     return results
 
 def change_threshold(conn, sku, threshold):

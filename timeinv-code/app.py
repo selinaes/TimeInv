@@ -23,13 +23,18 @@ app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 @app.route('/', methods = ['GET','POST'])
 def index():
     conn = dbi.connect()
-    results = [{'sku': 'tbd', 'title': "Product's Name", 'latesttime': 'datetime', 'inventory': '0'}]
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
         if request.args.get('using') == 'sku':
             results = utils.inventory_by_sku(conn,request.args.get('number'))
+            if len(results) == 1 and results[0]['sku'] == None:
+                results = []
+                flash("No products found for the given SKU", "error")
         elif request.args.get('using') == 'threshold':
             results = utils.inventory_below_threshold(conn,request.args.get('number'))
+            if len(results) == 0:
+                flash("No products found for the given threshold", "error")
+        return render_template('main.html')
     # 'POST' is for 1.Modify Threshold 2.recording new sales
     else:
         try:
@@ -38,17 +43,19 @@ def index():
                     'threshold': request.form['threshold'],
                     'sku': request.form['threshold-sku']}
                 utils.change_threshold(conn, threshold_data['sku'], threshold_data['threshold'])
+                flash("Threshold updated", "success")
             elif "sale-form" in request.form:
                 sale_data = {
                     'amount': request.form['sale-quantity'],
                     'sku': request.form['sale-sku']}
                 # add logged-in staff detail & pass it to record_sale
                 utils.record_sale(conn, sale_data['sku'], sale_data['amount'], datetime.datetime.now(), 'ad1')
+                flash("Sale was sucessfully registered", "success")
         except Exception as e:
             flash("Error processing form. Try again.", "error")
-    return render_template('main.html',results = results)
+    return render_template('main.html', results = results)
 
-@app.route('/products', methods = ['GET', 'POST'])
+@app.route('/products/', methods = ['GET', 'POST'])
 def products():
     conn = dbi.connect()
     if request.method == 'GET':
@@ -126,18 +133,16 @@ def edit_product(sku):
                 utils.update_product_new_sku(conn, request.form['product-name'], 
                 request.form['product-price'], 'at1', sku, request.form['product-sku'])
                 flash("The product was sucessfully updated.", "success")
-                results = utils.get_all_products(conn)
-                return render_template('product-edit.html', 
-                sku = request.form['product-sku'], products=results)
+                return redirect(url_for('edit_product', sku = request.form['product-sku']))
 
             except Exception as e:
-                if 'duplicate entry' in e.args[1]:
+                # Checking that the error is a SQL error and it has two arguments
+                if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
                     flash("""Error updating the product. The SKU provided already identifies 
                     another product.""", "error")
                 else:
                     flash("Error updating the product. Try again")
-                return render_template('products.html', sku = sku, products=results,
-                 edit=True)
+                return redirect(url_for('edit_product', sku = sku))
             
 
 @app.route('/products/delete/<sku>', methods=['POST'])
@@ -148,9 +153,8 @@ def delete_product(sku):
         flash("The product was sucessfully deleted.", "success")
         return redirect(url_for('products'))
     except Exception as e:
-        print(e)
         flash("Error. The product could not be deleted.", "error")
-        return ('Error')
+        return redirect(url_for('products'))
         
 @app.errorhandler(404)
 def page_not_found(e):
