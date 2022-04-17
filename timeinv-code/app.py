@@ -1,3 +1,8 @@
+# =================================================================================
+#  TimeInv, an Inventory Management App for CS304 Project Spring '22 
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
 from flask import (Flask, render_template, make_response, url_for, request,
                    redirect, flash, session, send_from_directory, jsonify, abort)
 from werkzeug.utils import secure_filename

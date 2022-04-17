@@ -1,4 +1,4 @@
-/* For flashed messages; make them stand out using red and italics */
+/* CSS for TimeInv app. Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, Diana Hernandez */
 
 HTML {
     --color-hilite: #b50000;  /* was red, but this avoids WAVE contrast errors */ 
