@@ -5,6 +5,7 @@
 <div>
     <h1>Check Realtime Inventory</h1>
     <p>Check and the availability levels of the products in your inventory.</p>
+    {{ show_messages_filtered() }}
 </div>
 
 <!-- The form for filtering inventory: by sku or by threshold -->
@@ -27,7 +28,6 @@
         <button class="btn btn-primary mx-2 my-2 my-sm-0" type="submit">Get Result</button>
     </div>
 </form>
-{{ show_messages_filtered() }}
 <!-- The table showing product info and inventory -->
 <table class="table">
     <thead>
