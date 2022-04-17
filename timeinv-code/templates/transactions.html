@@ -33,6 +33,7 @@
                 </button>
             </span>
         </div>
+    </div>
 </nav>
 {% endblock %}
 
@@ -40,8 +41,8 @@
 <div>
     <h1>Transactions</h1>
     <p>
-        View information for all transactions that you have added to your business.
-        Search for or sort transactions on display.
+        View information for all transactions that have been performed in your business.
+        Search for transactions by name or sort transactions on display.
     </p>
     <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('transactions')}}">
         <div class="inline">
@@ -85,7 +86,9 @@
                 </td>
             </tr>
         </table>
-        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Sort</button>
+        <span class="inline-elem">
+            <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Sort</button>
+        </span>
     </form>
 </div>
 
@@ -94,9 +97,9 @@
       <tr>
         <th scope="col">Transaction ID</th>
         <th scope="col">SKU</th>
-        <th scope="col">Title</th>
+        <th scope="col">Product name</th>
         <th scope="col">Transaction time</th>
-        <th scope="col">Changes in Amount</th>
+        <th scope="col">Changes in amount</th>
       </tr>
     </thead>
     <tbody>
