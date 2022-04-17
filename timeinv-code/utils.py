@@ -168,8 +168,10 @@ def inventory_below_threshold(conn, threshold):
     Returns list of products below the given threshold
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select sku, title, max(timestamp) as latesttime, sum(amount) as inventory from 
-    transaction inner join product using (sku) group by sku having inventory < %s
+    sql = """select sku, title, max(timestamp) as latesttime, 
+    sum(amount) as inventory 
+    from transaction inner join product using (sku) 
+    group by sku having inventory < %s
     """
     curs.execute(sql, [threshold])
     results = curs.fetchall()
@@ -226,7 +228,8 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
 
 def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
-    sql = "select tid, sku, title, timestamp, amount from product inner join transaction using (sku) order by timestamp DESC"
+    sql = """select tid, sku, title, timestamp, amount 
+    from product inner join transaction using (sku) order by timestamp DESC"""
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -234,7 +237,10 @@ def get_all_transactions(conn):
 def transaction_sort(conn, by, order):
     curs = dbi.dict_cursor(conn)
     # Prepared queries can only be used for values, not column names or order
-    sql = "select transaction.tid, transaction.sku, product.title, transaction.timestamp, transaction.amount from product, transaction where product.sku = transaction.sku order by " + by +  " " + order
+    sql = """select transaction.tid, transaction.sku, product.title, 
+    transaction.timestamp, transaction.amount 
+    from product, transaction 
+    where product.sku = transaction.sku order by """ + by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -244,7 +250,9 @@ def transaction_search(conn, search_type, query):
     Returns a list of all products that contain the query string
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select tid, sku, title, timestamp, amount FROM product INNER JOIN transaction USING (sku) where """ + search_type + """ like %s """
+    sql = """select tid, sku, title, timestamp, amount 
+    FROM product INNER JOIN transaction USING (sku) 
+    where """ + search_type + """ like %s """
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
