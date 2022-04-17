@@ -25,6 +25,7 @@ def index():
     conn = dbi.connect()
     # 'GET' is for filtering for threshold check
     if request.method == 'GET':
+        results = []
         if "check-all" in request.args:
             results = utils.filter_all_by_threshold(conn)
         else: 
@@ -39,7 +40,7 @@ def index():
                 results = utils.inventory_below_threshold(conn,request.args.get('number'))
                 if len(results) == 0:
                     flash("No products found for the given threshold", "error")
-
+        return render_template('main.html', results = results)
     # 'POST' is for 1. Modify Threshold 2. recording new sales
     else:
         try:
@@ -58,7 +59,7 @@ def index():
                 flash("Sale was sucessfully registered", "success")
         except Exception as e:
             flash("Error processing form. Try again.", "error")
-    return render_template('main.html', results = results)
+        return render_template('main.html')
 
 @app.route('/products/', methods = ['GET', 'POST'])
 def products():
