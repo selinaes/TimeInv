@@ -3,72 +3,74 @@
 
 {% block main_content %}
 <div>
-    <h1>Check Realtime Inventory</h1>
+    <div class="d-flex align-items-start justify-content-between pb-1">
+        <h1>Check Availability of Products</h1>
+        <form method="GET" action="{{url_for('index')}}">
+            <button type="submit" class="btn btn-primary" name="check-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-arrow-clockwise" viewbox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+                    <path
+                        d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
+                Run availability check using saved threshold
+            </button>
+        </form>
+    </div>
     <p>Check and the availability levels of the products in your inventory.</p>
     {{ show_messages_filtered() }}
 </div>
 
-<!-- The form for filtering inventory: by sku or by threshold -->
-<form class="main-page-form pb-2" method="GET" action="{{url_for('index')}}">
-    <table>
-        <tr>
-            <td><label for="using">Using</label></td>
-            <td>
-                <select required id="using" name="using">
-                    <option value="">Choose one</option>
-                    <option value="sku">Product SKU</option>
-                    <option value="threshold">Threshold</option>
-                </select>
-            </td>
-        </tr>
+<div class="py-2">
+    <!-- The form for filtering inventory: by sku or by threshold -->
+    <form class="main-page-form pb-2" method="GET" action="{{url_for('index')}}">
+        <table>
+            <tr>
+                <td><label for="using">Using</label></td>
+                <td>
+                    <select required id="using" name="using">
+                        <option value="">Choose one</option>
+                        <option value="sku">Product SKU</option>
+                        <option value="threshold">Threshold</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <div class="inline">
+            <label class="inline-elem-r mx-2" for="number" id="num-label"> of (enter number) </label>
+            <input required class="form-control w-75 mr-sm-2" type="number" id="number" name="number"
+                aria-label="Number">
+            <button class="btn btn-primary mx-2 my-2 my-sm-0" type="submit">Get Result</button>
+        </div>
+    </form>
+    <!-- The table showing product info and inventory -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">SKU</th>
+                <th scope="col">Title</th>
+                <th scope="col">Last transaction time</th>
+                <th scope="col">Current Inventory</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{result.sku}}</td>
+                <td>{{result.title}}</td>
+                <td>{{result.latesttime}}</td>
+                <td>{{result.inventory}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
-    <div class="inline">
-        <label class="inline-elem-r mx-2" for="number" id="num-label"> of (enter number) </label>
-        <input required class="form-control w-75 mr-sm-2" type="number" id="number" name="number" aria-label="Number">
-        <button class="btn btn-primary mx-2 my-2 my-sm-0" type="submit">Get Result</button>
-    </div>
-</form>
-<!-- The table showing product info and inventory -->
-<table class="table">
-    <thead>
-        <tr>
-            <th scope="col">SKU</th>
-            <th scope="col">Title</th>
-            <th scope="col">Last transaction time</th>
-            <th scope="col">Current Inventory</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for result in results %}
-        <tr>
-            <td>{{result.sku}}</td>
-            <td>{{result.title}}</td>
-            <td>{{result.latesttime}}</td>
-            <td>{{result.inventory}}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-  <form method="GET" action="{{url_for('index')}}">
-    <div class="d-flex align-items-start justify-content-between pb-4">
-        <button type="submit" class="btn btn-primary" name="check-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                class="bi bi-arrow-clockwise" viewbox="0 0 16 16">
-                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
-                <path
-                    d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
-            </svg>
-            Run availability check using saved threshold
-        </button>
-    </div>
-</form>
+</div>
 
 <div class="container-fluid">
     <div class="container pt-4 px-0">
         <div class="row">
             <div class="col">
-                <h2 class="h4 pb-2">Modify threshold</h2>
+                <h2 class="h4 pb-1">Modify threshold</h2>
                 <p>
                     Update the amount of a product below which you want to trigger an alert in the availability check.
                 </p>

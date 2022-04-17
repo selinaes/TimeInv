@@ -16,13 +16,14 @@ app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
 
 # This gets us better error messages for certain common request errors
 app.config['TRAP_BAD_REQUEST_ERRORS'] = True
+# Image upload (in progress)
 app.config['UPLOADS'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 
 @app.route('/', methods = ['GET','POST'])
 def index():
     conn = dbi.connect()
-    # 'GET' is for filtering for threshold check
+    # 'GET' is for filtering the threshold check
     if request.method == 'GET':
         results = []
         if "check-all" in request.args:
@@ -54,7 +55,9 @@ def index():
                     'amount': request.form['sale-quantity'],
                     'sku': request.form['sale-sku']}
                 # add logged-in staff detail & pass it to record_sale
-                utils.record_sale(conn, sale_data['sku'], sale_data['amount'], datetime.datetime.now(), 'ad1')
+                utils.record_sale(conn, sale_data['sku'],
+                 sale_data['amount'], datetime.datetime.now(), 
+                 'ad1')
                 flash("Sale was sucessfully registered", "success")
         except Exception as e:
             flash("Error processing form. Try again.", "error")
@@ -92,7 +95,8 @@ def products():
         except Exception as e:
             print(str(e.args[1])) # Temporary. Helpful for debugging
             if ('Duplicate entry' in e.args[1]):
-                flash('Error. The SKU indicated already corresponds to another product.', "error")
+                flash('Error. The SKU indicated already corresponds to another product.'
+                , "error")
             else:
                 flash('Error adding the product. Please try again.', "error")
             results = utils.get_all_products(conn)
@@ -115,39 +119,28 @@ def edit_product(sku):
 
     # Request is POST
     else:
-        # SKU is unchanged
-        new_sku = request.form['product-sku']
-        if new_sku == sku:
-            try:
-                utils.update_product(conn, request.form['product-name'], 
-                request.form['product-price'], 'at1', sku)
-                flash("The product was sucessfully updated.", "success")
-                results = utils.get_all_products(conn)
-                return render_template('products.html', sku = sku, 
-                products=results, edit=True)
-            except Exception as e:
-                print(e)
-                flash("Error updating the product. Try again.", "error")
-                return render_template('products.html', sku = sku, 
-                products=results, edit=True)
+        try:
+            utils.update_product(conn, request.form['product-name'], 
+            request.form['product-price'], 'at1', sku, request.form['product-sku'])
+            flash("The product was sucessfully updated.", "success")
+            results = utils.get_all_products(conn)
 
-        # SKU changed
-        else:
-            try:
-                # Hard-coding last_modified_by until login is implemented
-                utils.update_product_new_sku(conn, request.form['product-name'], 
-                request.form['product-price'], 'at1', sku, request.form['product-sku'])
-                flash("The product was sucessfully updated.", "success")
+            # SKU hasn't changed
+            if sku == request.form['product-sku']:
+                return render_template('products.html', sku = sku, 
+                        products=results, edit=True)
+            # SKU has changed, we need to redirect
+            else:
                 return redirect(url_for('edit_product', sku = request.form['product-sku']))
 
-            except Exception as e:
-                # Checking that the error is a SQL error and it has two arguments
-                if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
-                    flash("""Error updating the product. The SKU provided already identifies 
+        except Exception as e:
+            if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
+                flash("""Error updating the product. The SKU provided already identifies 
                     another product.""", "error")
-                else:
-                    flash("Error updating the product. Try again")
-                return redirect(url_for('edit_product', sku = sku))
+            else:
+                flash("Error updating the product. Try again.", "error")
+            return render_template('products.html', sku = sku, 
+            products=results, edit=True)
             
 
 @app.route('/products/delete/<sku>', methods=['POST'])
@@ -202,9 +195,13 @@ def transactions():
     if request.method == 'GET':
         if request.args:
             if request.args.get('search'):
-                results = utils.transaction_search(conn, request.args.get('by'), request.args.get('search'))
+                results = utils.transaction_search(conn, 
+                request.args.get('by'), 
+                request.args.get('search'))
             else:
-                results = utils.transaction_sort(conn, request.args.get('sort'), request.args.get('order'))
+                results = utils.transaction_sort(conn, 
+                request.args.get('sort'), 
+                request.args.get('order'))
         else:
             results = utils.get_all_transactions(conn)
         return render_template('transactions.html', transactions = results)

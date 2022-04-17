@@ -110,9 +110,9 @@
             <td>{{results.title}}</td>
             <td>{{results.timestamp.strftime('%m-%d-%Y %I:%M %p')}}</td>
             {% if results.amount > 0 %}
-            <td class="text-success">{{results.amount}}</td>
+            <td class="text-success">{{results.amount}} (order)</td>
             {% else %}
-            <td class="text-danger">{{results.amount}}</td>
+            <td class="text-danger">{{results.amount}} (sale)</td>
             {% endif %}
         </tr>
         {% endfor %}

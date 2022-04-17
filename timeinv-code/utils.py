@@ -124,18 +124,7 @@ def sku_exists(conn, sku):
     return len(results) > 0
 
 
-def update_product(conn, title, price, last_modified_by, sku):
-    """
-    Updates a product in the timeinv_db database without changes to sku
-    """
-    curs = dbi.dict_cursor(conn)
-    sql = """update product 
-    set title = %s, price = %s, last_modified_by = %s
-    where sku = %s"""
-    curs.execute(sql, [title, price, last_modified_by, sku])
-    conn.commit()
-
-def update_product_new_sku(conn, title, price, last_modified_by, og_sku, new_sku):
+def update_product(conn, title, price, last_modified_by, og_sku, new_sku):
     """
     Updates a product in the timeinv_db database with a new sku
 
