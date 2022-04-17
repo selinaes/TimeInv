@@ -262,7 +262,18 @@ def transaction_search(conn, search_type, query):
 
 def add_product_order(conn, sku, units, timestamp, user):
     """
-    Adds a product order to the transactions
+    Adds a product order to the transactions log
+
+    Parameters:
+        conn: a connection object
+        sku (int): sku of product that was ordered
+        units (int): number of units that were ordered
+        timestamp (string): time at which transaction was made
+        user (string): username of staff member that is adding
+        the product order
+
+    Returns:
+        None
     """
     curs = dbi.dict_cursor(conn)
     sql = """insert into transaction 
