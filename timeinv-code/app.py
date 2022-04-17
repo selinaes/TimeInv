@@ -5,7 +5,6 @@ app = Flask(__name__)
 
 import cs304dbi as dbi
 import utils 
-
 import random
 import datetime
 
@@ -161,6 +160,30 @@ def delete_product(sku):
     except Exception as e:
         flash("Error. The product could not be deleted.", "error")
         return redirect(url_for('products'))
+
+@app.route('/order_products/', methods = ['GET', 'POST'])
+def order_products():
+    if request.method == 'GET':
+        return render_template('order.html')
+    # Request is POST
+    else:
+        conn = dbi.connect()
+        # Hard-coding valid username until adding login
+        try:
+            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(date)
+            utils.add_product_order(conn, request.form['product-sku'], 
+            request.form['product-units'], date, 'at1')
+            flash("""The order for product with
+             SKU """+ request.form['product-sku'] +" was sucessfully added.", 
+             "success")
+            return render_template('order.html')
+        except Exception as e:
+            if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
+                flash("Error adding the order: the product with the SKU provided doesn't exist.", "error")
+            else:
+                flash("Error adding order.", "error")
+            return render_template('order.html')
         
 @app.errorhandler(404)
 def page_not_found(e):
@@ -173,7 +196,7 @@ def init_db():
     dbi.use(db_to_use)
     print('will connect to {}'.format(db_to_use))
 
-@app.route('/transactions')
+@app.route('/transactions/')
 def transactions():
     conn = dbi.connect()
     if request.method == 'GET':

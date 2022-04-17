@@ -23,6 +23,13 @@ def get_all_products(conn):
 def product_sort(conn, by, order):
     """
     Returns a list of all products sorted in ascending or descending order
+    Parameters:
+        conn: a connection object
+        by (string): column to sort the products by
+        order (string): asc or desc for ascending or descending order
+    Returns:
+        A list of dictionaries, where each dictionary is a product object, 
+        sorted in asc or desc order for the given column by
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by " + by +  " " + order
@@ -190,3 +197,17 @@ def transaction_search(conn, search_type, query):
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
+
+def add_product_order(conn, sku, units, timestamp, user):
+    """
+    Adds a product order to the transactions
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """insert into transaction 
+            (timestamp, tid, sku, amount, last_modified_by)
+            values (%s, NULL, %s, %s, %s)
+        """
+    curs.execute(sql, [timestamp, sku, units, user])
+    conn.commit()
+
+

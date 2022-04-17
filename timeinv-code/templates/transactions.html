@@ -24,7 +24,7 @@
                     <a class="nav-link" href="{{url_for('products')}}">Products</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Order Products</a>
+                    <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
                 </li>
             </ul>
             <span>
@@ -41,7 +41,7 @@
 <div>
     <h1>Transactions</h1>
     <p>
-        View information for all transactions that have been performed in your business.
+        View information for all sales and orders that have been performed in your business.
         Search for transactions by name or sort transactions on display.
     </p>
     <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('transactions')}}">
@@ -55,7 +55,7 @@
                 <td>
                     <select required id="by" name="by">
                         <option value="">Choose one</option>
-                        <option value="title">Title</option>
+                        <option value="title">Name</option>
                         <option value="sku">SKU</option>
                         <option value="timestamp">Timestamp</option>
                     </select>
@@ -92,7 +92,7 @@
     </form>
 </div>
 
-<table class="table">
+<table class="table table-striped">
     <thead>
       <tr>
         <th scope="col">Transaction ID</th>
@@ -108,8 +108,12 @@
             <td>{{results.tid}}</td>
             <td>{{results.sku}}</td>
             <td>{{results.title}}</td>
-            <td>{{results.timestamp}}</td>
-            <td>{{results.amount}}</td>
+            <td>{{results.timestamp.strftime('%m-%d-%Y %I:%M %p')}}</td>
+            {% if results.amount > 0 %}
+            <td class="text-success">{{results.amount}}</td>
+            {% else %}
+            <td class="text-danger">{{results.amount}}</td>
+            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
