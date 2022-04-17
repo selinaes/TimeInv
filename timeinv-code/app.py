@@ -9,7 +9,6 @@ import utils
 import random
 import datetime
 
-app.secret_key = 'your secret here'
 # replace that with a random key
 app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
                                           'abcdefghijklmnopqrstuvxyz' +
@@ -115,6 +114,7 @@ def edit_product(sku):
                 return render_template('products.html', sku = sku, 
                 products=results, edit=True)
             except Exception as e:
+                print(e)
                 flash("Error updating the product. Try again.", "error")
                 return render_template('products.html', sku = sku, 
                 products=results, edit=True)
