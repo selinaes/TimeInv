@@ -52,6 +52,7 @@
                 <th scope="col">Title</th>
                 <th scope="col">Last transaction time</th>
                 <th scope="col">Current Inventory</th>
+                <th scope="col">Threshold</th>
             </tr>
         </thead>
         <tbody>
@@ -61,6 +62,7 @@
                 <td>{{result.title}}</td>
                 <td>{{result.latesttime}}</td>
                 <td>{{result.inventory}}</td>
+                <td>{{result.threshold}}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -68,10 +70,10 @@
 </div>
 
 <div class="container-fluid">
-    <div class="container pt-4 px-0">
+    <div class="container pt-5 px-0">
         <div class="row">
             <div class="col">
-                <h2 class="h4 pb-1">Modify threshold</h2>
+                <h2 class="h4 pb-1">Add or Modify threshold</h2>
                 <p>
                     Add or update the amount of a product below which you want 
                     to trigger an alert in the availability check.
