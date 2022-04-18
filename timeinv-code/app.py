@@ -182,17 +182,6 @@ def order_products():
             else:
                 flash("Error adding order.", "error")
             return render_template('order.html')
-        
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('error.html'), 404
-
-@app.before_first_request
-def init_db():
-    dbi.cache_cnf()
-    db_to_use = 'timeinv_db' 
-    dbi.use(db_to_use)
-    print('will connect to {}'.format(db_to_use))
 
 @app.route('/transactions/')
 def transactions():
@@ -209,7 +198,19 @@ def transactions():
                 request.args.get('order'))
         else:
             results = utils.get_all_transactions(conn)
-        return render_template('transactions.html', transactions = results)
+        return render_template('transactions.html', transactions = results, 
+        search = request.args.get('search'))
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html'), 404
+
+@app.before_first_request
+def init_db():
+    dbi.cache_cnf()
+    db_to_use = 'timeinv_db' 
+    dbi.use(db_to_use)
+    print('will connect to {}'.format(db_to_use))
 
 if __name__ == '__main__':
     import sys, os
