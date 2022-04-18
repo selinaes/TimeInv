@@ -17,8 +17,10 @@ def get_all_products(conn):
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by title"
+    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 
@@ -35,8 +37,10 @@ def product_sort(conn, by, order):
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by " + by +  " " + order
+    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 
@@ -58,8 +62,10 @@ def product_search(conn, search_type, query):
     curs = dbi.dict_cursor(conn)
     sql = """select * from product 
     where """ + search_type + """ like %s order by title"""
+    curs.execute("start transaction")
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 
@@ -79,8 +85,10 @@ def products_addedby(conn, staff):
     curs = dbi.dict_cursor(conn)
     sql = """select * from product where 
     last_modified_by = %s"""
+    curs.execute("start transaction")
     curs.execute(sql, [staff])
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 def product_insert(conn, sku, name, price, staff):
@@ -99,8 +107,10 @@ def product_insert(conn, sku, name, price, staff):
     curs = dbi.dict_cursor(conn)
     sql = """insert into product
     values (%s, %s, %s, %s, %s, %s)"""
+    curs.execute("start transaction")
     curs.execute(sql, [sku, name, price, 0, 
     staff, None]) 
+    curs.execute("commit")
     conn.commit()
 
 def sku_exists(conn, sku):
@@ -120,8 +130,10 @@ def sku_exists(conn, sku):
     curs = dbi.dict_cursor(conn)
     sql = """select sku from transaction where 
     sku = %s"""
+    curs.execute("start transaction")
     curs.execute(sql, [sku])
     results = curs.fetchall()
+    curs.execute("commit")
     return len(results) > 0
 
 
@@ -145,7 +157,9 @@ def update_product(conn, title, price, last_modified_by, og_sku, new_sku):
     sql = """update product 
     set sku = %s, title = %s, price = %s, last_modified_by = %s
     where sku = %s"""
+    curs.execute("start transaction")
     curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
+    curs.execute("commit")
     conn.commit()
 
 def delete_product_by_sku(conn, sku):
@@ -161,7 +175,9 @@ def delete_product_by_sku(conn, sku):
     """
     curs = dbi.dict_cursor(conn)
     sql = "delete from product where sku = %s"
+    curs.execute("start transaction")
     curs.execute(sql, [sku])
+    curs.execute("commit")
     conn.commit()
 
 def inventory_below_threshold(conn, threshold):
@@ -174,8 +190,10 @@ def inventory_below_threshold(conn, threshold):
     from transaction inner join product using (sku) 
     group by sku having inventory < %s
     """
+    curs.execute("start transaction")
     curs.execute(sql, [threshold])
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 
@@ -189,8 +207,10 @@ def inventory_by_sku(conn, sku):
     USING (sku) 
     WHERE sku = %s
     """
+    curs.execute("start transaction")
     curs.execute(sql, [sku])
     results = curs.fetchall()
+    curs.execute("commit")
     print(results)
     return results
 
@@ -202,8 +222,10 @@ def filter_all_by_threshold(conn):
     sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory, threshold 
     FROM transaction INNER JOIN product USING (sku) GROUP BY sku HAVING inventory < threshold
     """
+    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 def change_threshold(conn, sku, threshold):
@@ -214,7 +236,9 @@ def change_threshold(conn, sku, threshold):
     sql = """update product 
     set threshold = %s 
     where sku = %s"""
+    curs.execute("start transaction")
     curs.execute(sql, [threshold, sku])
+    curs.execute("commit")
     conn.commit()
 
 def record_sale(conn, sku, amount, timestamp, last_modified_by):
@@ -224,15 +248,19 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
     curs = dbi.dict_cursor(conn)
     sql = """insert into transaction
     (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
+    curs.execute("start transaction")
     curs.execute(sql, [timestamp, sku, amount, last_modified_by])
+    curs.execute("commit")
     conn.commit()
 
 def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
     sql = """select tid, sku, title, timestamp, amount 
     from product inner join transaction using (sku) order by timestamp DESC"""
+    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 def transaction_sort(conn, by, order):
@@ -242,8 +270,10 @@ def transaction_sort(conn, by, order):
     transaction.timestamp, transaction.amount 
     from product, transaction 
     where product.sku = transaction.sku order by """ + by +  " " + order
+    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 def transaction_search(conn, search_type, query):
@@ -254,8 +284,10 @@ def transaction_search(conn, search_type, query):
     sql = """select tid, sku, title, timestamp, amount 
     FROM product INNER JOIN transaction USING (sku) 
     where """ + search_type + """ like %s """
+    curs.execute("start transaction")
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
+    curs.execute("commit")
     return results
 
 def add_product_order(conn, sku, units, timestamp, user):
@@ -278,7 +310,9 @@ def add_product_order(conn, sku, units, timestamp, user):
             (timestamp, tid, sku, amount, last_modified_by)
             values (%s, NULL, %s, %s, %s)
         """
+    curs.execute("start transaction")
     curs.execute(sql, [timestamp, sku, units, user])
+    curs.execute("commit")
     conn.commit()
 
 
