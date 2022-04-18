@@ -65,7 +65,13 @@ def index():
                  'ad1')
                 flash("Sale was sucessfully registered", "success")
         except Exception as e:
-            flash("Error processing form. Try again.", "error")
+            print(e.args)
+            if len(e.args) == 1 and 'availability' in e.args[0]:
+                flash(e.args[0], "error")
+            elif len(e.args) == 1 and 'No product found' in e.args[0]:
+                flash(e.args[0], "error")
+            else:
+                flash("Error processing form. Try again.", "error")
         return render_template('main.html')
 
 @app.route('/products/', methods = ['GET', 'POST'])
@@ -98,8 +104,7 @@ def products():
             flash("The product was successfully added", "success")
             return render_template('products.html', products=results, product_data={})
         except Exception as e:
-            print(str(e.args[1])) # Temporary. Helpful for debugging
-            if ('Duplicate entry' in e.args[1]):
+            if (len(e.args) > 1 and 'Duplicate entry' in e.args[1]):
                 flash('Error. The SKU indicated already corresponds to another product.'
                 , "error")
             else:

@@ -246,10 +246,23 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
     Record a sale in transaction table in the timeinv_db database
     """
     curs = dbi.dict_cursor(conn)
-    sql = """insert into transaction
-    (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
+    sql1 = """select sum(amount) as inventory 
+    from transaction group by sku having sku = %s
+    """
     curs.execute("start transaction")
-    curs.execute(sql, [timestamp, sku, amount, last_modified_by])
+    curs.execute(sql1, [sku])
+    result = curs.fetchall()
+    if len(result) < 1:
+        curs.execute("rollback")
+        raise Exception("No product found with the SKU given")
+    else:
+        if result[0]['inventory'] < int(amount):
+            curs.execute("rollback")
+            raise Exception("""Not enough availability of the product to perform the sale.
+            There are only """ + str(result[0]['inventory']) + " units available")
+    sql2 = """insert into transaction
+    (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
+    curs.execute(sql2, [timestamp, sku, -int(amount), last_modified_by])
     curs.execute("commit")
     conn.commit()
 
