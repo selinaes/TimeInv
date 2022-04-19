@@ -182,11 +182,19 @@ def delete_product_by_sku(conn, sku):
 
 def inventory_below_threshold(conn, threshold):
     """
-    Returns list of products below the given threshold
-    """
+    Get all products below the given threshold
+
+    Parameters:
+        conn: a connection object
+        threshold (int): the threshold below which a product need to be returned
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of products below the desired threshold
+    """ 
     curs = dbi.dict_cursor(conn)
     sql = """select sku, title, max(timestamp) as latesttime, 
-    sum(amount) as inventory 
+    sum(amount) as inventory, threshold 
     from transaction inner join product using (sku) 
     group by sku having inventory < %s
     """
@@ -199,10 +207,19 @@ def inventory_below_threshold(conn, threshold):
 
 def inventory_by_sku(conn, sku):
     """
-    Returns the requested sku product and its inventory information
-    """
+    Get the requested sku product and its inventory information
+
+    Parameters:
+        conn: a connection object
+        sku (int): the sku to be searched
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of the desired product
+    """ 
     curs = dbi.dict_cursor(conn)
-    sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory 
+    sql = """SELECT sku, title, max(timestamp) as latesttime, 
+    sum(amount) as inventory, threshold 
     FROM product INNER JOIN transaction 
     USING (sku) 
     WHERE sku = %s
@@ -217,7 +234,14 @@ def inventory_by_sku(conn, sku):
 def filter_all_by_threshold(conn):
     """
     Filter through all products and return those under threshold & current inventory
-    """
+
+    Parameters:
+        conn: a connection object
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of the products below their saved threshold
+    """ 
     curs = dbi.dict_cursor(conn)
     sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory, threshold 
     FROM transaction INNER JOIN product USING (sku) GROUP BY sku HAVING inventory < threshold
@@ -231,7 +255,15 @@ def filter_all_by_threshold(conn):
 def change_threshold(conn, sku, threshold):
     """
     Change the warning threshold of a product in the timeinv_db database
-    """
+
+    Parameters:
+        conn: a connection object
+        sku: the sku of product to be changed
+        threshold: the threshold to change to
+
+    Returns:
+        None
+    """ 
     curs = dbi.dict_cursor(conn)
     sql = """update product 
     set threshold = %s 
@@ -244,7 +276,17 @@ def change_threshold(conn, sku, threshold):
 def record_sale(conn, sku, amount, timestamp, last_modified_by):
     """
     Record a sale in transaction table in the timeinv_db database
-    """
+
+    Parameters:
+        conn: a connection object
+        sku: the sku of product sold
+        amount: the amount of product sold
+        timestamp: the time when sale is recorded
+        last_modified_by: the staff exercising the recording
+
+    Returns:
+        None
+    """ 
     curs = dbi.dict_cursor(conn)
     sql1 = """select sum(amount) as inventory 
     from transaction group by sku having sku = %s
@@ -267,6 +309,14 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
     conn.commit()
 
 def get_all_transactions(conn):
+    """
+    Returns all transactions in the current db
+    Parameters:
+        conn: a connection object
+    Returns:
+        The tid, sku, title, timestamp, and amount for each transaction
+        in reversed time order
+    """
     curs = dbi.dict_cursor(conn)
     sql = """select tid, sku, title, timestamp, amount 
     from product inner join transaction using (sku) order by timestamp DESC"""
@@ -277,6 +327,16 @@ def get_all_transactions(conn):
     return results
 
 def transaction_sort(conn, by, order):
+    """
+    Returns a list of all transactions sorted in ascending or descending order
+    Parameters:
+        conn: a connection object
+        by (string): column to sort the transactions by
+        order (string): asc or desc for ascending or descending order
+    Returns:
+        A list of dictionaries, where each dictionary is a transaction object, 
+        sorted in asc or desc order for the given column
+    """
     curs = dbi.dict_cursor(conn)
     # Prepared queries can only be used for values, not column names or order
     sql = """select transaction.tid, transaction.sku, product.title, 
@@ -291,7 +351,18 @@ def transaction_sort(conn, by, order):
 
 def transaction_search(conn, search_type, query):
     """
-    Returns a list of all products that contain the query string
+    Returns a list of all transactions that contain the query string
+    in the given search_type column
+
+    Parameters:
+        conn: a connection object
+        search_type (string): column to compare the query to
+        query (string): string to search in the search_type column
+
+    Returns:
+        A list of dictionaries that contain the query string
+        in the search_type column, where each dictionary is a 
+        transaction object.
     """
     curs = dbi.dict_cursor(conn)
     sql = """select tid, sku, title, timestamp, amount 
