@@ -105,7 +105,8 @@ def product_insert(conn, sku, name, price, staff):
         product object that was added by the given staff member.
     """
     curs = dbi.dict_cursor(conn)
-    sql = """insert into product
+    sql = """insert into product (sku, title, price, threshold, 
+    last_modified_by, image_file_name)
     values (%s, %s, %s, %s, %s, %s)"""
     curs.execute("start transaction")
     curs.execute(sql, [sku, name, price, 0, 
@@ -228,7 +229,6 @@ def inventory_by_sku(conn, sku):
     curs.execute(sql, [sku])
     results = curs.fetchall()
     curs.execute("commit")
-    print(results)
     return results
 
 def filter_all_by_threshold(conn):
