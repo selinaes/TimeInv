@@ -183,7 +183,8 @@ def order_products():
             return render_template('order.html')
         except Exception as e:
             if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
-                flash("Error adding the order: the product with the SKU provided doesn't exist.", "error")
+                flash("Error adding the order: the product with the SKU provided doesn't exist.",
+                 "error")
             else:
                 flash("Error adding order.", "error")
             return render_template('order.html')
