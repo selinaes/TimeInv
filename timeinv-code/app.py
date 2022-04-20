@@ -8,6 +8,8 @@ from flask import (Flask, render_template, make_response, url_for, request,
 from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
+import sys, os
+import imghdr
 import cs304dbi as dbi
 import utils 
 import random
@@ -22,7 +24,7 @@ app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
 # This gets us better error messages for certain common request errors
 app.config['TRAP_BAD_REQUEST_ERRORS'] = True
 # Image upload (in progress)
-app.config['UPLOADS'] = 'uploads'
+app.config['UPLOADS'] = './static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 
 @app.route('/', methods = ['GET','POST'])
@@ -130,20 +132,33 @@ def edit_product(sku):
     # Request is POST
     else:
         try:
-            utils.update_product(conn, request.form['product-name'], 
-            request.form['product-price'], 'at1', sku, request.form['product-sku'])
+            # Handle picture
+            file = request.files.get('picture')
+            user_filename = file.filename
+            filename = ''
+
+            if user_filename != '': # User uploaded file
+                # ADD TRY EXCEPT TO HANDLE PROBLEMS W FILE
+                ext = user_filename.split('.')[-1]
+                filename = secure_filename('{}.{}'.format(request.form['product-sku'], ext))
+                pathname = os.path.join(app.config['UPLOADS'], filename)
+                file.save(pathname)
+            
+            updated_products = utils.update_product(conn, request.form['product-name'], 
+            request.form['product-price'], 'at1', filename, sku, request.form['product-sku'])
+
             flash("The product was sucessfully updated.", "success")
-            results = utils.get_all_products(conn)
 
             # SKU hasn't changed
             if sku == request.form['product-sku']:
                 return render_template('products.html', sku = sku, 
-                        products=results, edit=True)
+                        products=updated_products, edit=True)
             # SKU has changed, we need to redirect
             else:
                 return redirect(url_for('edit_product', sku = request.form['product-sku']))
 
         except Exception as e:
+            print(e)
             if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
                 flash("""Error updating the product. The SKU provided already identifies 
                     another product.""", "error")
