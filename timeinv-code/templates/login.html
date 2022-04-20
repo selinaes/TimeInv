@@ -1,0 +1,17 @@
+<!-- TimeInv Login Page. Author: Francisca Moya Jimenez -->
+{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+{% block head_stuff %}
+<title>TimeInv | Inventory Management</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
