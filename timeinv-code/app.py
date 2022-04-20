@@ -207,17 +207,18 @@ def order_products():
 @app.route('/transactions/')
 def transactions():
     conn = dbi.connect()
-    if request.args:
-        if request.args.get('search'):
-            results = utils.transaction_search(conn, 
-            request.args.get('by'), 
-            request.args.get('search'))
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = utils.transaction_search(conn, 
+                request.args.get('by'), 
+                request.args.get('search'))
+            else:
+                results = utils.transaction_sort(conn, 
+                request.args.get('sort'), 
+                request.args.get('order'))
         else:
-            results = utils.transaction_sort(conn, 
-            request.args.get('sort'), 
-            request.args.get('order'))
-    else:
-        results = utils.get_all_transactions(conn)
+            results = utils.get_all_transactions(conn)
         return render_template('transactions.html', transactions = results, 
         search = request.args.get('search'))
 
