@@ -138,7 +138,7 @@ def sku_exists(conn, sku):
     return len(results) > 0
 
 
-def update_product(conn, title, price, last_modified_by, og_sku, new_sku):
+def update_product(conn, title, price, last_modified_by, image, og_sku, new_sku):
     """
     Updates a product in the timeinv_db database with a new sku
 
@@ -152,16 +152,28 @@ def update_product(conn, title, price, last_modified_by, og_sku, new_sku):
         new_sku (int): new product sku
 
     Returns:
-        None
+        A list of dictionary-type objects with the updated 
+        product information
     """
     curs = dbi.dict_cursor(conn)
-    sql = """update product 
-    set sku = %s, title = %s, price = %s, last_modified_by = %s
-    where sku = %s"""
-    curs.execute("start transaction")
-    curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
+    if image != '':
+        sql = """update product 
+        set sku = %s, title = %s, price = %s, last_modified_by = %s, image_file_name = %s
+        where sku = %s"""
+        curs.execute("start transaction")
+        curs.execute(sql, [new_sku, title, price, last_modified_by, image, og_sku])
+    else:
+        # Image wasn't updated and we want to update the rest of the information
+        sql = """update product 
+        set sku = %s, title = %s, price = %s, last_modified_by = %s
+        where sku = %s"""
+        curs.execute("start transaction")
+        curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
+    curs.execute("select * from product order by title")
+    results = curs.fetchall()
     curs.execute("commit")
     conn.commit()
+    return results
 
 def delete_product_by_sku(conn, sku):
     """
