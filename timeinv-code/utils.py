@@ -4,6 +4,8 @@
 # =================================================================================
 
 import cs304dbi as dbi
+import os
+from werkzeug.utils import secure_filename
 
 
 def get_all_products(conn):
@@ -91,7 +93,7 @@ def products_addedby(conn, staff):
     curs.execute("commit")
     return results
 
-def product_insert(conn, sku, name, price, staff):
+def product_insert(conn, sku, name, price, staff, image_name):
     """
     Returns a list of all products that were added by a 
     specific staff member
@@ -99,6 +101,10 @@ def product_insert(conn, sku, name, price, staff):
     Parameters:
         conn: a connection object
         staff (string): the username of the staff 
+        name (string): the name of the product to be inserted
+        price (float): the price of the product to be inserted
+        staff (string): the name of the staff posting the picture
+        image_name (string): the name of the image uploaded for the product
 
     Returns:
         A list of dictionaries, where each dictionary is a 
@@ -109,8 +115,9 @@ def product_insert(conn, sku, name, price, staff):
     last_modified_by, image_file_name)
     values (%s, %s, %s, %s, %s, %s)"""
     curs.execute("start transaction")
+    # Threshold starts as 0 by default
     curs.execute(sql, [sku, name, price, 0, 
-    staff, None]) 
+    staff, image_name if image_name != '' else None]) 
     curs.execute("commit")
     conn.commit()
 
@@ -129,7 +136,7 @@ def sku_exists(conn, sku):
         False if it doesn't).
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select sku from transaction where 
+    sql = """select sku from product where 
     sku = %s"""
     curs.execute("start transaction")
     curs.execute(sql, [sku])
@@ -156,14 +163,14 @@ def update_product(conn, title, price, last_modified_by, image, og_sku, new_sku)
         product information
     """
     curs = dbi.dict_cursor(conn)
-    if image != '':
+    if image != '': # Image was not added by the user
         sql = """update product 
         set sku = %s, title = %s, price = %s, last_modified_by = %s, image_file_name = %s
         where sku = %s"""
         curs.execute("start transaction")
         curs.execute(sql, [new_sku, title, price, last_modified_by, image, og_sku])
-    else:
-        # Image wasn't updated and we want to update the rest of the information
+    
+    else: # Image wasn't updated and we want to update the rest of the information
         sql = """update product 
         set sku = %s, title = %s, price = %s, last_modified_by = %s
         where sku = %s"""
@@ -412,3 +419,17 @@ def add_product_order(conn, sku, units, timestamp, user):
     conn.commit()
 
 
+def upload_file(file, ext, sku, uploads):
+    user_filename = file.filename
+    filename = ''
+
+    if user_filename != '': # User uploaded file
+        ext = user_filename.split('.')[-1]
+        if ext not in ext:
+            raise Exception("File has incorrect format")
+        else:
+            filename = secure_filename('{}.{}'.format(sku, ext))
+            pathname = os.path.join(uploads, filename)
+            file.save(pathname)
+
+    return filename

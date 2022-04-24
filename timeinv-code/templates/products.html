@@ -65,7 +65,8 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form class="modal-form" method="POST" action="{{url_for('products')}}">
+                    <form class="modal-form" method="POST" action="{{url_for('products')}}"
+                    enctype="multipart/form-data">
                         {{ show_messages_filtered() }}
                         <table class="form">
                             <tr>
@@ -101,6 +102,15 @@
                                     </div>
                                 </td>
                             </tr>
+                            <tr>
+                                <td>
+                                    <label for="picture" class="control-label">Picture:</label>
+                                </td>
+                                <td>
+                                    <input type="file" name="picture">
+                                </td>
+                            </tr>
+                            
                         </table>
                         <div class="container pt-5">
                             <div class="d-flex justify-content-end">
