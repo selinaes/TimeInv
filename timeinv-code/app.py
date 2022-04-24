@@ -12,6 +12,7 @@ app = Flask(__name__)
 import sys, os, imghdr, random, datetime
 import cs304dbi as dbi
 import utils 
+import bcrypt
 
 # replace that with a random key
 app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
@@ -32,11 +33,48 @@ def login():
     if request.method == 'GET':
         return render_template('login.html')
     else:
-        return str(request.form)
+        # Log in
+        username = request.form.get('username')
+        passwd1 = request.form.get('password')
 
+        conn = dbi.connect()
+        curs = dbi.dict_cursor(conn)
+        curs.execute("""SELECT username,hashed
+                    FROM userpass
+                    WHERE username = %s""",
+                     [username])
+        row = curs.fetchone()
+        if row is None:
+        # Same response as wrong password
+            flash("Login incorrect. No account for the given username.", "error")
+            return render_template('login.html')
+        
+        stored = row['hashed']
+        hashed2 = bcrypt.hashpw(passwd1.encode('utf-8'),
+                            stored.encode('utf-8'))
+        hashed2_str = hashed2.decode('utf-8')
+
+        if hashed2_str == row['hashed']:
+            session['username'] = username
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+
+        flash("Login incorrect. Wrong password.", "error")
+        return render_template('login.html')
+
+@app.route('/logout/', methods = ['POST'])
+def logout():
+    if ('username' in session and 'logged_in' in session):
+        session.pop('username')
+        session.pop('logged_in')
+    return redirect(url_for('index'))
 
 @app.route('/', methods = ['GET','POST'])
 def index():
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     conn = dbi.connect()
     # 'GET' is for filtering the threshold check
     if request.method == 'GET':
@@ -86,6 +124,10 @@ def index():
 
 @app.route('/products/', methods = ['GET', 'POST'])
 def products():
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     conn = dbi.connect()
     if request.method == 'GET':
         if request.args:
@@ -141,6 +183,10 @@ def products():
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     conn = dbi.connect()
     results = utils.get_all_products(conn)
     product_exists = utils.sku_exists(conn, sku)
@@ -196,6 +242,10 @@ def edit_product(sku):
 
 @app.route('/products/delete/<sku>', methods=['POST'])
 def delete_product(sku):
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     conn = dbi.connect()
     try:
         utils.delete_product_by_sku(conn, sku)
@@ -207,6 +257,10 @@ def delete_product(sku):
 
 @app.route('/order_products/', methods = ['GET', 'POST'])
 def order_products():
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     if request.method == 'GET':
         return render_template('order.html')
     # Request is POST
@@ -232,6 +286,10 @@ def order_products():
 
 @app.route('/transactions/')
 def transactions():
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
     conn = dbi.connect()
     if request.args:
         if request.args.get('search'):

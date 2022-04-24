@@ -21,11 +21,13 @@
             <h1>TimeInv</h1>
             <h2>Inventory management made easy</h2>
         </div>
-        <form method="POST" class="login">
+        <form method="POST" class="login" action="{{url_for('login')}}">
             <h3 class="pb-2">Log In</h3>
+            {{ show_messages_filtered() }}
             <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" aria-describedby="emailHelp" required>
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" 
+                aria-describedby="emailHelp" required>
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>
