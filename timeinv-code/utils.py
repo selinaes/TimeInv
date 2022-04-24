@@ -1,5 +1,5 @@
 # =================================================================================
-#  Helpers functions for app.py
+#  Helper functions for app.py
 #  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
 # =================================================================================
 
@@ -405,6 +405,19 @@ def add_product_order(conn, sku, units, timestamp, user):
 
 
 def upload_file(file, extension_list, sku, uploads):
+    """
+    Uploads a file to the files folder
+
+    Parameters:
+        file: file to be uploaded
+        extension_list (list of strings): list with the 
+            extensions that a user is allowed to upload
+        sku (int): product sku for which to upload the picture to
+        uploads: directory to which to upload the file
+
+    Returns:
+        A string with the file name that was uploaded
+    """
     user_filename = file.filename
     filename = ''
 
@@ -418,3 +431,24 @@ def upload_file(file, extension_list, sku, uploads):
             file.save(pathname)
 
     return filename
+
+def get_password_by_username(conn, username):
+    """
+    Returns the username and the hashed password for a given username.
+
+    Parameters:
+        conn: a connection object
+        username (string): a username 
+
+    Returns:
+        None if the given username doesn't exist, and
+        a dictionary-like object if the username exists
+        with the username and the hashed password stored
+    """
+    curs = dbi.dict_cursor(conn)
+    curs.execute("""SELECT username, hashed
+                    FROM userpass
+                    WHERE username = %s""",
+                     [username])
+    row = curs.fetchone()
+    return row

@@ -38,12 +38,7 @@ def login():
         passwd1 = request.form.get('password')
 
         conn = dbi.connect()
-        curs = dbi.dict_cursor(conn)
-        curs.execute("""SELECT username,hashed
-                    FROM userpass
-                    WHERE username = %s""",
-                     [username])
-        row = curs.fetchone()
+        row = utils.get_password_by_username(conn, username)
         if row is None:
         # Same response as wrong password
             flash("Login incorrect. No account for the given username.", "error")
@@ -110,7 +105,7 @@ def index():
                 # add logged-in staff detail & pass it to record_sale
                 utils.record_sale(conn, sale_data['sku'],
                  sale_data['amount'], datetime.datetime.now(), 
-                 'ad1')
+                 session.get('username'))
                 flash("Sale was sucessfully registered", "success")
         except Exception as e:
             print(e.args)
@@ -166,7 +161,7 @@ def products():
             
             # If file upload was sucessful, insert the product 
             utils.product_insert(conn, product_data['sku'], product_data['name'], 
-            product_data['price'], 'at1', file_name)
+            product_data['price'], session.get('username'), file_name)
             results = utils.get_all_products(conn)
             flash("The product was successfully added", "success")
             return render_template('products.html', products=results, product_data={})
@@ -218,7 +213,7 @@ def edit_product(sku):
             
             # If no issues with picture, try to insert product
             updated_products = utils.update_product(conn, request.form['product-name'], 
-            request.form['product-price'], 'at1', file_name, sku, request.form['product-sku'])
+            request.form['product-price'], session.get('username'), file_name, sku, request.form['product-sku'])
 
             flash("The product was sucessfully updated.", "success")
 
@@ -271,7 +266,7 @@ def order_products():
             date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             print(date)
             utils.add_product_order(conn, request.form['product-sku'], 
-            request.form['product-units'], date, 'at1')
+            request.form['product-units'], date, session.get('username'))
             flash("""The order for product with
              SKU """+ request.form['product-sku'] +" was sucessfully added.", 
              "success")
