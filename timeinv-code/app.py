@@ -3,7 +3,7 @@
 #  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
 # =================================================================================
 
-from importlib.machinery import EXTENSION_SUFFIXES
+from crypt import methods
 from flask import (Flask, render_template, make_response, url_for, request,
                    redirect, flash, session, send_from_directory, jsonify, abort)
 from werkzeug.utils import secure_filename
@@ -25,6 +25,15 @@ app.config['TRAP_BAD_REQUEST_ERRORS'] = True
 app.config['UPLOADS'] = './static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+
+@app.route('/login/', methods = ['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    else:
+        return str(request.form)
+
 
 @app.route('/', methods = ['GET','POST'])
 def index():
@@ -106,13 +115,14 @@ def products():
                 app.config['UPLOADS'])
 
             except Exception as e: # Early return and flash if there are any issues uploading a picture
-                print(e)
-                flash("Error adding the product. The picture added could not be uploaded.", "error")
+                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
+                    flash(e.args[0], "error")
+                else: # Error unrelated to format
+                    flash("Error adding the product. The picture added could not be uploaded.", "error")
                 results = utils.get_all_products(conn)
                 return render_template('products.html', products=results, product_data={})
             
             # If file upload was sucessful, insert the product 
-
             utils.product_insert(conn, product_data['sku'], product_data['name'], 
             product_data['price'], 'at1', file_name)
             results = utils.get_all_products(conn)
@@ -137,7 +147,6 @@ def edit_product(sku):
 
     # If SKU doesn't exist, throw an error
     if not product_exists:
-        print('not exists')
         return abort(404)
 
     # Request is GET
@@ -149,28 +158,21 @@ def edit_product(sku):
         try:
             # Handle picture
             file = request.files.get('picture')
-            user_filename = file.filename
-            filename = ''
+            try: 
+                file_name = utils.upload_file(file, ALLOWED_EXTENSIONS, sku, 
+                app.config['UPLOADS'])
 
-            if user_filename != '': # User uploaded file
-                try:
-                    ext = user_filename.split('.')[-1]
-                    if ext not in ALLOWED_EXTENSIONS:
-                        flash('The file that you tried to upload does not have the correct format.',
-                        'error')
-                        return render_template('products.html', sku = sku, 
-                                products=results, edit=True)
-
-                    filename = secure_filename('{}.{}'.format(request.form['product-sku'], ext))
-                    pathname = os.path.join(app.config['UPLOADS'], filename)
-                    file.save(pathname)
-                except: # Early return and flash if image could not be uploaded
-                    flash("Error uploading the image chosen. Try again.", "error")
-                    return render_template('products.html', sku = sku, 
-                    products=results, edit=True)
+            except Exception as e: # Early return and flash if there are any issues uploading a picture
+                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
+                    flash(e.args[0], "error")
+                else: # Error unrelated to format
+                    flash("Error adding the product. The picture added could not be uploaded.", "error")
+                results = utils.get_all_products(conn)
+                return render_template('products.html', products=results, product_data={})
             
+            # If no issues with picture, try to insert product
             updated_products = utils.update_product(conn, request.form['product-name'], 
-            request.form['product-price'], 'at1', filename, sku, request.form['product-sku'])
+            request.form['product-price'], 'at1', file_name, sku, request.form['product-sku'])
 
             flash("The product was sucessfully updated.", "success")
 

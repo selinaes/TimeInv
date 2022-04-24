@@ -19,10 +19,8 @@ def get_all_products(conn):
     """
     curs = dbi.dict_cursor(conn)
     sql = "select * from product order by title"
-    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 
@@ -38,11 +36,15 @@ def product_sort(conn, by, order):
         sorted in asc or desc order for the given column
     """
     curs = dbi.dict_cursor(conn)
-    sql = "select * from product order by " + by +  " " + order
-    curs.execute("start transaction")
+    # Checking inputs
+    order_by = {"price":"price", "title": "title", "sku":"sku"}
+    direction = {"asc":"asc", "desc":"desc"}
+    if by not in order_by or order not in direction:
+        raise Exception("Type to sort by in products is not permitted")
+    
+    sql = "select * from product order by " + order_by[by] +  " " + order[direction]
     curs.execute(sql)
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 
@@ -62,12 +64,14 @@ def product_search(conn, search_type, query):
         product object.
     """
     curs = dbi.dict_cursor(conn)
+    order_by = {"price":"price", "title": "title", "sku":"sku"}
+    if search_type not in order_by:
+        raise Exception("Type to sort by in products is not permitted")
+    
     sql = """select * from product 
-    where """ + search_type + """ like %s order by title"""
-    curs.execute("start transaction")
+    where """ + order_by[search_type] + """ like %s order by title"""
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 
@@ -87,10 +91,8 @@ def products_addedby(conn, staff):
     curs = dbi.dict_cursor(conn)
     sql = """select * from product where 
     last_modified_by = %s"""
-    curs.execute("start transaction")
     curs.execute(sql, [staff])
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def product_insert(conn, sku, name, price, staff, image_name):
@@ -114,11 +116,9 @@ def product_insert(conn, sku, name, price, staff, image_name):
     sql = """insert into product (sku, title, price, threshold, 
     last_modified_by, image_file_name)
     values (%s, %s, %s, %s, %s, %s)"""
-    curs.execute("start transaction")
     # Threshold starts as 0 by default
     curs.execute(sql, [sku, name, price, 0, 
     staff, image_name if image_name != '' else None]) 
-    curs.execute("commit")
     conn.commit()
 
 def sku_exists(conn, sku):
@@ -138,10 +138,8 @@ def sku_exists(conn, sku):
     curs = dbi.dict_cursor(conn)
     sql = """select sku from product where 
     sku = %s"""
-    curs.execute("start transaction")
     curs.execute(sql, [sku])
     results = curs.fetchall()
-    curs.execute("commit")
     return len(results) > 0
 
 
@@ -167,18 +165,15 @@ def update_product(conn, title, price, last_modified_by, image, og_sku, new_sku)
         sql = """update product 
         set sku = %s, title = %s, price = %s, last_modified_by = %s, image_file_name = %s
         where sku = %s"""
-        curs.execute("start transaction")
         curs.execute(sql, [new_sku, title, price, last_modified_by, image, og_sku])
     
     else: # Image wasn't updated and we want to update the rest of the information
         sql = """update product 
         set sku = %s, title = %s, price = %s, last_modified_by = %s
         where sku = %s"""
-        curs.execute("start transaction")
         curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
     curs.execute("select * from product order by title")
     results = curs.fetchall()
-    curs.execute("commit")
     conn.commit()
     return results
 
@@ -195,9 +190,7 @@ def delete_product_by_sku(conn, sku):
     """
     curs = dbi.dict_cursor(conn)
     sql = "delete from product where sku = %s"
-    curs.execute("start transaction")
     curs.execute(sql, [sku])
-    curs.execute("commit")
     conn.commit()
 
 def inventory_below_threshold(conn, threshold):
@@ -218,10 +211,8 @@ def inventory_below_threshold(conn, threshold):
     from transaction inner join product using (sku) 
     group by sku having inventory < %s
     """
-    curs.execute("start transaction")
     curs.execute(sql, [threshold])
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 
@@ -244,10 +235,8 @@ def inventory_by_sku(conn, sku):
     USING (sku) 
     WHERE sku = %s
     """
-    curs.execute("start transaction")
     curs.execute(sql, [sku])
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def filter_all_by_threshold(conn):
@@ -265,10 +254,8 @@ def filter_all_by_threshold(conn):
     sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory, threshold 
     FROM transaction INNER JOIN product USING (sku) GROUP BY sku HAVING inventory < threshold
     """
-    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def change_threshold(conn, sku, threshold):
@@ -287,9 +274,7 @@ def change_threshold(conn, sku, threshold):
     sql = """update product 
     set threshold = %s 
     where sku = %s"""
-    curs.execute("start transaction")
     curs.execute(sql, [threshold, sku])
-    curs.execute("commit")
     conn.commit()
 
 def record_sale(conn, sku, amount, timestamp, last_modified_by):
@@ -339,10 +324,8 @@ def get_all_transactions(conn):
     curs = dbi.dict_cursor(conn)
     sql = """select tid, sku, title, timestamp, amount 
     from product inner join transaction using (sku) order by timestamp DESC"""
-    curs.execute("start transaction")
     curs.execute(sql)
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def transaction_sort(conn, by, order):
@@ -357,15 +340,21 @@ def transaction_sort(conn, by, order):
         sorted in asc or desc order for the given column
     """
     curs = dbi.dict_cursor(conn)
+    order_by = {"timestamp":"timestamp", "sku":"sku", "title":"title"}
+    by_criterion = {"asc":"asc", "desc":"desc"}
+
+    # Check inputs
+    if by not in order_by or order not in by_criterion:
+        raise Exception("Order by criterion is not allowed")
+
     # Prepared queries can only be used for values, not column names or order
     sql = """select transaction.tid, transaction.sku, product.title, 
     transaction.timestamp, transaction.amount 
     from product, transaction 
-    where product.sku = transaction.sku order by """ + by +  " " + order
-    curs.execute("start transaction")
+    where product.sku = transaction.sku 
+    order by """ + order_by[by] +  " " + by_criterion[order]
     curs.execute(sql)
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def transaction_search(conn, search_type, query):
@@ -387,10 +376,8 @@ def transaction_search(conn, search_type, query):
     sql = """select tid, sku, title, timestamp, amount 
     FROM product INNER JOIN transaction USING (sku) 
     where """ + search_type + """ like %s """
-    curs.execute("start transaction")
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
-    curs.execute("commit")
     return results
 
 def add_product_order(conn, sku, units, timestamp, user):
@@ -413,20 +400,18 @@ def add_product_order(conn, sku, units, timestamp, user):
             (timestamp, tid, sku, amount, last_modified_by)
             values (%s, NULL, %s, %s, %s)
         """
-    curs.execute("start transaction")
     curs.execute(sql, [timestamp, sku, units, user])
-    curs.execute("commit")
     conn.commit()
 
 
-def upload_file(file, ext, sku, uploads):
+def upload_file(file, extension_list, sku, uploads):
     user_filename = file.filename
     filename = ''
 
     if user_filename != '': # User uploaded file
         ext = user_filename.split('.')[-1]
-        if ext not in ext:
-            raise Exception("File has incorrect format")
+        if ext not in extension_list:
+            raise Exception("Error inserting the product. File uploaded has incorrect format.")
         else:
             filename = secure_filename('{}.{}'.format(sku, ext))
             pathname = os.path.join(uploads, filename)

@@ -199,7 +199,7 @@
                 <div class="card-body">
                     <img class="card-img-top"
                         src="{{url_for('static', filename = 'uploads/' + product.image_file_name ) 
-                        if product.image_file_name !=  'null' else 'https://via.placeholder.com/266x140'}}"
+                        if product.image_file_name !=  None else 'https://via.placeholder.com/266x140'}}"
                         alt="Product SKU:{{product.sku}} image" width="266" height="200">
                     <h5 class="card-title pt-4">{{product.title}}</h5>
                     <div class="card-text">
