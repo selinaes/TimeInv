@@ -37,12 +37,13 @@ def product_sort(conn, by, order):
     """
     curs = dbi.dict_cursor(conn)
     # Checking inputs
-    order_by = {"price":"price", "title": "title", "sku":"sku"}
-    direction = {"asc":"asc", "desc":"desc"}
+    order_by = {"price", "title", "sku"}
+    direction = {"asc", "desc"}
     if by not in order_by or order not in direction:
         raise Exception("Type to sort by in products is not permitted")
     
-    sql = "select * from product order by " + order_by[by] +  " " + order[direction]
+    # We have already vetted the user input, so we can go ahead and use it
+    sql = "select * from product order by " + by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -64,12 +65,13 @@ def product_search(conn, search_type, query):
         product object.
     """
     curs = dbi.dict_cursor(conn)
-    order_by = {"price":"price", "title": "title", "sku":"sku"}
+    order_by = {"price", "title", "sku"}
     if search_type not in order_by:
         raise Exception("Type to sort by in products is not permitted")
     
+    # We can use search_type because we have already vetted the input
     sql = """select * from product 
-    where """ + order_by[search_type] + """ like %s order by title"""
+    where """ + search_type + """ like %s order by title"""
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
@@ -340,19 +342,19 @@ def transaction_sort(conn, by, order):
         sorted in asc or desc order for the given column
     """
     curs = dbi.dict_cursor(conn)
-    order_by = {"timestamp":"timestamp", "sku":"sku", "title":"title"}
-    by_criterion = {"asc":"asc", "desc":"desc"}
+    order_by = {"timestamp", "sku", "title"}
+    by_criterion = {"asc", "desc"}
 
     # Check inputs
     if by not in order_by or order not in by_criterion:
         raise Exception("Order by criterion is not allowed")
 
-    # Prepared queries can only be used for values, not column names or order
+    # We can use user input because we have already vetted it
     sql = """select transaction.tid, transaction.sku, product.title, 
     transaction.timestamp, transaction.amount 
     from product, transaction 
     where product.sku = transaction.sku 
-    order by """ + order_by[by] +  " " + by_criterion[order]
+    order by """ + order_by +  " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -373,6 +375,11 @@ def transaction_search(conn, search_type, query):
         transaction object.
     """
     curs = dbi.dict_cursor(conn)
+    cols = {"timestamp", "sku", "title"}
+    if search_type not in cols:
+        raise Exception("Search not allowed for the given column")
+    
+    # We can use user input because we have already vetted it
     sql = """select tid, sku, title, timestamp, amount 
     FROM product INNER JOIN transaction USING (sku) 
     where """ + search_type + """ like %s """
