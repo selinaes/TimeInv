@@ -9,7 +9,7 @@ from flask import (Flask, render_template, make_response, url_for, request,
 app = Flask(__name__)
 
 import sys, os, imghdr, random, datetime
-import dashboard, orders, products as prod, transaction, users
+import user
 import cs304dbi as dbi
 import bcrypt
 
@@ -37,7 +37,7 @@ def login():
         passwd1 = request.form.get('password')
 
         conn = dbi.connect()
-        row = users.get_password_by_username(conn, username)
+        row = user.get_password_name(conn, username)
         if row is None:
         # Same response as wrong password
             flash("Login incorrect. No account for the given username.", "error")
@@ -328,6 +328,12 @@ def transactions():
     return render_template('transactions.html', transactions = results, 
     search = request.args.get('search'))
 
+@app.route('/manage_access/', methods = ['GET', 'POST'])
+def users():
+    if request.method == 'GET':
+        conn = dbi.connect()
+        results = access.get_all_access(conn)
+        return render_template('manage-access.html', users = results)
 
 # AJAX routes
 @app.route('/username_exists/', methods = ['POST'])
@@ -335,6 +341,31 @@ def username_exists():
     conn = dbi.connect()
     username = request.form.get('username', '')
     return jsonify(users.username_exists(conn, username))
+
+@app.route('/delete_member/', methods = ['POST'])
+def delete_member():
+    conn = dbi.connect()
+    username = request.form.get('member', '')
+    try:
+        access.remove_member(conn, username)
+        return jsonify(True)
+    except:
+        message = jsonify(message='Error removing member')
+        return make_response(message, 400)
+
+@app.route('/edit_member/', methods = ['POST'])
+def edit_member():
+    conn = dbi.connect()
+    username = request.form.get('username', '')
+    username = request.form.get('name', '')
+    role = request.form.get('role', '')
+    permission = request.form.get('permission', '')
+    try:
+        result = access.edit_member(conn, username)
+        return jsonify(result)
+    except:
+        message = jsonify(message='Error editing member')
+        return make_response(message, 400)
 
 @app.errorhandler(404)
 def page_not_found(e):
