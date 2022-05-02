@@ -1,5 +1,5 @@
 # =================================================================================
-#  Helper functions for the products page in app.py
+#  Helper functions for the manage users page in app.py
 #  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
 # =================================================================================
 
@@ -26,7 +26,7 @@ def get_all_access(conn, username):
 
 def remove_member(conn, username):
     """
-    Remove a member from the staff table given a username
+    Removes a member from the staff table given a username
     Parameters:
         conn: a connection object
         username (string): a username from the staff table

@@ -3,7 +3,6 @@
 #  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
 # =================================================================================
 
-from crypt import methods
 from flask import (Flask, render_template, make_response, url_for, request,
                    redirect, flash, session, jsonify, abort)
 app = Flask(__name__)
@@ -21,7 +20,7 @@ app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
 
 # This gets us better error messages for certain common request errors
 app.config['TRAP_BAD_REQUEST_ERRORS'] = True
-# Image upload (in progress)
+# Image upload
 app.config['UPLOADS'] = './static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -39,7 +38,6 @@ def login():
         conn = dbi.connect()
         row = user.get_password_by_username(conn, username)
         if row is None:
-        # Same response as wrong password
             flash("Login incorrect. No account for the given username.", "error")
             return render_template('login.html')
         
@@ -63,7 +61,7 @@ def signup():
     if request.method == 'GET':
         return render_template('signup.html')
     
-    # Request is post
+    # Request is POST
     else:
         # Sign up
         username = request.form.get('username')
@@ -79,7 +77,8 @@ def signup():
             return redirect(url_for('login'))
 
         except Exception as e:
-            if len(e.args) == 1 and ('characters' in e.args[0] or 'organization' in e.args[0]):
+            if len(e.args) == 1 and ('characters' in e.args[0] 
+            or 'organization' in e.args[0]):
                 flash(e.args[0], "error")
             elif len(e.args) == 2 and "key 'PRIMARY'" in e.args[1]:
                 flash("The username you chose is taken. Please choose another username.", "error")
@@ -181,8 +180,9 @@ def products():
 
     # Request is POST. Add a new product.
     else:
-        product_data = {'name': request.form['product-name'],
-        'sku': request.form['product-sku'], 'price': request.form['product-price']}
+        product_data = {'name': request.form.get('product-name', ''),
+        'sku': request.form.get('product-sku', ''), 
+        'price': request.form.get('product-price', '')}
         try:
             # Handle picture
             file = request.files.get('picture')
@@ -197,7 +197,7 @@ def products():
                 else: # Error unrelated to format
                     flash("Error adding the product. The picture added could not be uploaded.", "error")
                 results = prod.get_all_products(conn)
-                return render_template('products.html', products=results, product_data={}, 
+                return render_template('products.html', products=results, product_data=product_data, 
                 permissions=permissions)
             
             # If file upload was sucessful, insert the product 
@@ -244,6 +244,9 @@ def edit_product(sku):
 
     # Request is POST
     else:
+        product_data = {'name': request.form.get('product-name', ''),
+        'sku': request.form.get('product-sku', ''), 
+        'price': request.form.get('product-price', '')}
         try:
             # Handle picture
             file = request.files.get('picture')
@@ -253,12 +256,14 @@ def edit_product(sku):
 
             except Exception as e: # Early return and flash if there are any issues uploading a picture
                 if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
-                    flash(e.args[0], "error")
+                    flash("""Error editing the product. The picture added must be a jpeg, 
+                    jpg or png file""", "error")
                 else: # Error unrelated to format
-                    flash("Error adding the product. The picture added could not be uploaded.", "error")
+                    flash("Error editing the product. The picture added could not be uploaded.",
+                     "error")
                 results = prod.get_all_products(conn)
-                return render_template('products.html', products=results, product_data={}, 
-                permissions=permissions)
+                return render_template('products.html', sku = sku, edit=True,
+                products=results, permissions=permissions)
             
             # If no issues with picture, try to insert product
             updated_products = prod.update_product(conn, request.form['product-name'], 
@@ -292,7 +297,8 @@ def delete_product(sku):
     # Check if user is logged in or if user is trying to access a forbidden route
     if session.get('logged_in') == None or 'product' not in permissions:
         if 'product' not in permissions:
-            flash("You attemped to access a forbidden page. Please log in again.", "error")
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
         return redirect(url_for('logout'))
 
     conn = dbi.connect()
@@ -311,7 +317,8 @@ def order_products():
     # Check if user is logged in or if user is trying to access a forbidden route
     if session.get('logged_in') == None or 'product' not in permissions:
         if 'product' not in permissions:
-            flash("You attemped to access a forbidden page. Please log in again.", "error")
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
         return redirect(url_for('logout'))
 
     if request.method == 'GET':
@@ -329,10 +336,10 @@ def order_products():
             return render_template('order.html', permissions = permissions)
         except Exception as e:
             if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
-                flash("Error adding the order: the product with the SKU provided doesn't exist.",
-                 "error")
+                flash("""Error adding the order: the product with the SKU 
+                provided doesn't exist.""","error")
             else:
-                flash("Error adding order.", "error")
+                flash("Error adding the order.", "error")
             return render_template('order.html', permissions = permissions)
 
 @app.route('/transactions/')
@@ -342,7 +349,8 @@ def transactions():
     # Check if user is logged in or if user is trying to access a forbidden route
     if session.get('logged_in') == None or 'transaction' not in permissions:
         if 'transaction' not in permissions:
-            flash("You attemped to access a forbidden page. Please log in again.", "error")
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
         return redirect(url_for('logout'))
 
     conn = dbi.connect()
@@ -367,7 +375,8 @@ def users():
     # Check if user is logged in or if user is trying to access a forbidden route
     if session.get('logged_in') == None or 'staff' not in permissions:
         if 'staff' not in permissions:
-            flash("You attemped to access a forbidden page. Please log in again.", "error")
+            flash("You attemped to access a forbidden page. Please log in again.", 
+            "error")
         return redirect(url_for('logout'))
     
     # Send current user

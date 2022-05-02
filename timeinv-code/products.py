@@ -99,8 +99,7 @@ def products_addedby(conn, staff):
 
 def product_insert(conn, sku, name, price, staff, image_name):
     """
-    Returns a list of all products that were added by a 
-    specific staff member
+    Inserts a new product into the database
 
     Parameters:
         conn: a connection object
@@ -111,8 +110,7 @@ def product_insert(conn, sku, name, price, staff, image_name):
         image_name (string): the name of the image uploaded for the product
 
     Returns:
-        A list of dictionaries, where each dictionary is a 
-        product object that was added by the given staff member.
+        None
     """
     curs = dbi.dict_cursor(conn)
     sql = """insert into product (sku, title, price, threshold, 

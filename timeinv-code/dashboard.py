@@ -1,5 +1,5 @@
 # =================================================================================
-#  Helper functions for transaction page in app.py
+#  Helper functions for dashboard page in app.py
 #  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
 # =================================================================================
 
