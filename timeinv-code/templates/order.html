@@ -1,6 +1,7 @@
-<!-- TimeInv Order Page. Author: Diana Hernandez -->
 {% extends "base.html" %}
 {% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+<!-- TimeInv Order Page. Author: Diana Hernandez -->
 
 {% block head_stuff %}
 <title>Order Products | TimeInv</title>
@@ -36,13 +37,13 @@
                 </li>
                 {% endif %}
             </ul>
-            <span>
+            <div>
                 <form method="POST" action="{{url_for('logout')}}">
                     <button type="submit" class="btn btn-outline-light">
                       Log out
                     </button>
                 </form>
-            </span>
+            </div>
         </div>
     </div>
 </nav>

@@ -1,10 +1,11 @@
-<!-- TimeInv User Page. Author: Francisca Moya Jimenez -->
 {% extends "base.html" %}
 {% from "flashing-macro-filtered.html" import show_messages_filtered %}
 
 {% block head_stuff %}
 <title>Manage Users | TimeInv</title>
 {% endblock %}
+
+<!-- TimeInv User Page. Author: Francisca Moya Jimenez -->
 
 {% block nav %}
 <nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
@@ -36,13 +37,13 @@
                     <a class="nav-link active" href="{{url_for('users')}}">Manage Users</a>
                 </li>
             </ul>
-            <span>
+            <div>
                 <form method="POST" action="{{url_for('logout')}}">
                     <button type="submit" class="btn btn-outline-light">
                         Log out
                     </button>
                 </form>
-            </span>
+            </div>
         </div>
     </div>
 </nav>
@@ -70,66 +71,68 @@
                             </button>
                         </div>
                         <div class="modal-body">
-                            <form method="dialog" action="">
-                                <table class="form">
-                                    <tr>
-                                        <td>
-                                            <label for="username" class="control-label">Username:</label>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control" id="username" name="person_name"
-                                                required />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label for="name" class="control-label">Name:</label>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control" id="name" name="person_name"
-                                                required />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label for="role" class="control-label">Role:</label>
-                                        </td>
-                                        <td>
-                                            <input class="form-control" id="role" name="role" type="text" required />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label for="permission" class="control-label">Permission:</label>
-                                        </td>
-                                        <td>
-                                            <fieldset>
+                            <table class="form">
+                                <tr>
+                                    <td>
+                                        <label for="username" class="control-label">Username:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="username" name="person_name"
+                                            required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="name" class="control-label">Name:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="name" name="person_name" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="role" class="control-label">Role:</label>
+                                    </td>
+                                    <td>
+                                        <input class="form-control" id="role" name="role" type="text" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label class="control-label">Permission:</label>
+                                    </td>
+                                    <td>
+                                        <fieldset>
+                                            <label for="product">
                                                 <input type="checkbox" id="product" name="product_perm" value="product"
                                                     class="form-check-label">
                                                 Product<br>
+                                            </label>
+                                            <label for="transaction">
                                                 <input type="checkbox" id="transaction" name="transaction"
                                                     value="transaction" class="form-check-label">
                                                 Transaction<br>
+                                            </label>
+                                            <label for="staff">
                                                 <input type="checkbox" id="staff" name="staff" value="staff"
                                                     class="form-check-label">
                                                 Staff<br>
-                                            </fieldset>
-                                        </td>
-                                    </tr>
-                                </table>
-                                <div class="container pt-5">
-                                    <div class="d-flex justify-content-end">
-                                        <div class="px-2">
-                                            <button type="button" class="btn btn-secondary" id="close-modal"
-                                                data-dismiss="modal">Cancel</button>
-                                        </div>
-                                        <div>
-                                            <button type="submit" class="btn btn-primary"
-                                                id="submit_new">Submit</button>
-                                        </div>
+                                            </label>
+                                        </fieldset>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="container pt-5">
+                                <div class="d-flex justify-content-end">
+                                    <div class="px-2">
+                                        <button type="button" class="btn btn-secondary" id="close-modal"
+                                            data-dismiss="modal">Cancel</button>
+                                    </div>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary" id="submit_new">Submit</button>
                                     </div>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -147,8 +150,8 @@
                 <th scope="col">Name</th>
                 <th scope="col">Role</th>
                 <th scope="col">Permissions</th>
-                <th scope="col"></th>
-                <th scope="col"></th>
+                <th scope="col">Edit member</th>
+                <th scope="col">Delete member</th>
             </tr>
         </thead>
         <tbody>
@@ -160,7 +163,7 @@
                 <td id="{{result.username}}_permissions">{{result.permission}}</td>
                 <td>
                     <button class="btn btn-primary" data-toggle="modal" data-target="#edit_{{result.username}}"
-                        id="edit">Edit</button>
+                        id="edit_button_{{result.username}}">Edit</button>
                     <!-- Edit Modal -->
                     <div class="modal fade" id="edit_{{result.username}}" tabindex="-1" role="dialog"
                         aria-hidden="true">
@@ -168,95 +171,105 @@
                             <div class="modal-content">
                                 <div class="modal-header">
                                     <h5 class="modal-title">Edit Member</h5>
-                                    <button type="button" id="close" class="close" data-dismiss="modal"
-                                        aria-label="Close">
+                                    <button type="button" id="close2{{result.username}}" class="close"
+                                        data-dismiss="modal" aria-label="Close">
                                         <span aria-hidden="true">&times;</span>
                                     </button>
                                 </div>
                                 <div class="modal-body">
-                                    <form method="dialog" action="" id="edit-form">
-                                        <table class="form">
-                                            <tr>
-                                                <td>
-                                                    <label for="person_name_{{result.username}}"
-                                                        class="control-label">Name:</label>
-                                                </td>
-                                                <td>
-                                                    <input type="text" class="form-control"
-                                                        id="person_name_{{result.username}}" name="person_name"
-                                                        value="{{result.name}}" required />
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>
-                                                    <label for="person_role_{{result.username}}"
-                                                        class="control-label">Role:</label>
-                                                </td>
-                                                <td>
-                                                    <input class="form-control" id="person_role_{{result.username}}"
-                                                        name="person_role" type="text" value="{{result.role}}"
-                                                        required />
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>
-                                                    <label for="person_permission_{{result.username}}"
-                                                        class="control-label">Permission:</label>
-                                                </td>
-                                                <td>
-                                                    <fieldset>
-                                                        {% if 'product' in result.permission %}
+                                    <table class="form">
+                                        <tr>
+                                            <td>
+                                                <label for="person_name_{{result.username}}"
+                                                    class="control-label">Name:</label>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control"
+                                                    id="person_name_{{result.username}}" name="person_name"
+                                                    value="{{result.name}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label for="person_role_{{result.username}}"
+                                                    class="control-label">Role:</label>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" id="person_role_{{result.username}}"
+                                                    name="person_role" type="text" value="{{result.role}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label
+                                                    class="control-label">Permission:</label>
+                                            </td>
+                                            <td>
+                                                <fieldset>
+                                                    {% if 'product' in result.permission %}
+                                                    <label for="p_checked_{{result.username}}">
                                                         <input type="checkbox" id="p_checked_{{result.username}}"
                                                             name="product_perm" value="product" class="form-check-label"
-                                                            checked>Product<br>
-                                                        {% else %}
-                                                        <!-- Same id since only one will be rendered -->
+                                                            checked>Product
+                                                    </label>
+                                                    {% else %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="p_checked_{{result.username}}">
                                                         <input type="checkbox" id="p_checked_{{result.username}}"
                                                             name="product_perm" value="product"
                                                             class="form-check-label">
                                                         Product<br>
-                                                        {% endif %}
-                                                        {% if 'transaction' in result.permission %}
-                                                        <!-- Same id since only one will be rendered -->
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'transaction' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="t_checked_{{result.username}}">
                                                         <input type="checkbox" id="t_checked_{{result.username}}"
                                                             name="transaction_perm" value="transaction" checked
                                                             class="form-check-label">
                                                         Transaction<br>
-                                                        {% else %}
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="t_checked_{{result.username}}">
                                                         <input type="checkbox" id="t_checked_{{result.username}}"
                                                             name="transaction_perm" value="transaction"
                                                             class="form-check-label">
                                                         Transaction<br>
-                                                        {% endif %}
-                                                        {% if 'staff' in result.permission %}
-                                                        <!-- Same id since only one will be rendered -->
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'staff' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="s_checked_{{result.username}}">
                                                         <input type="checkbox" id="s_checked_{{result.username}}"
                                                             name="staff_perm" value="staff" checked
                                                             class="form-check-label">
                                                         Staff<br>
-                                                        {% else %}
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="s_checked_{{result.username}}">
                                                         <input type="checkbox" id="s_checked_{{result.username}}"
                                                             name="staff_perm" value="staff" class="form-check-label">
                                                         Staff<br>
-                                                        {% endif %}
-                                                    </fieldset>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                        <div class="container pt-5">
-                                            <div class="d-flex justify-content-end">
-                                                <div class="px-2">
-                                                    <button type="button" class="btn btn-secondary" id="close-modal"
-                                                        data-dismiss="modal">Cancel</button>
-                                                </div>
-                                                <div>
-                                                    <button type="submit" class="btn btn-primary"
-                                                        id="submit_edit_{{result.username}}">Save
-                                                        changes</button>
-                                                </div>
+                                                    </label>
+                                                    {% endif %}
+                                                </fieldset>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <div class="container pt-5">
+                                        <div class="d-flex justify-content-end">
+                                            <div class="px-2">
+                                                <button type="button" class="btn btn-secondary"
+                                                    id="close-modal{{result.username}}"
+                                                    data-dismiss="modal">Cancel</button>
+                                            </div>
+                                            <div>
+                                                <button type="submit" class="btn btn-primary"
+                                                    id="submit_edit_{{result.username}}">Save
+                                                    changes</button>
                                             </div>
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -271,7 +284,7 @@
                         <div class="modal-dialog" role="document">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="delete">Delete</h5>
+                                    <h5 class="modal-title">Delete</h5>
                                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                         <span aria-hidden="true">&times;</span>
                                     </button>
@@ -418,10 +431,10 @@
             check_validity(username);
         }
         if (name == '') {
-            $("#person_name_" + username).reportValidity();
+            jQuery("#person_name_" + username)[0].reportValidity();
         }
         if (role == '') {
-            $("#person_role_" + username).reportValidity();
+            jQuery("#person_role_" + username)[0].reportValidity();
         }
     });
 
@@ -464,7 +477,7 @@
                                     </button>
                                 </div>
                                 <div class="modal-body">
-                                    <form method="dialog" action="" id="edit-form">
+                                    <form method="dialog" action="/" id="edit-form">
                                         <table class="form">
                                             <tr>
                                                 <td>
@@ -495,36 +508,36 @@
                                                 </td>
                                                 <td>
                                                     <fieldset>
-                                                        ${resp.permission.includes('product')? 
-                                                            ` <input type="checkbox" id="p_checked_${resp.username}"
+                                                        ${resp.permission.includes('product') ?
+                        ` <input type="checkbox" id="p_checked_${resp.username}"
                                                             name="product_perm" value="product" class="form-check-label"
                                                             checked>Product<br>`:
-                                                            `<input type="checkbox" id="p_checked_${resp.username}"
+                        `<input type="checkbox" id="p_checked_${resp.username}"
                                                             name="product_perm" value="product"
                                                             class="form-check-label">`
 
-                                                        }
-                                                        ${resp.permission.includes('permission')? 
-                                                            `<input type="checkbox" id="t_checked_${resp.username}"
+                    }
+                                                        ${resp.permission.includes('permission') ?
+                        `<input type="checkbox" id="t_checked_${resp.username}"
                                                             name="transaction_perm" value="transaction" checked
                                                             class="form-check-label">
                                                         Transaction<br>`:
-                                                            `<input type="checkbox" id="t_checked_${resp.username}"
+                        `<input type="checkbox" id="t_checked_${resp.username}"
                                                             name="transaction_perm" value="transaction"
                                                             class="form-check-label">
                                                         Transaction<br>`
-                                                        }
+                    }
 
-                                                        ${resp.permission.includes('staff')? 
-                                                            `<input type="checkbox" id="s_checked_${resp.username}"
+                                                        ${resp.permission.includes('staff') ?
+                        `<input type="checkbox" id="s_checked_${resp.username}"
                                                             name="staff_perm" value="staff" checked
                                                             class="form-check-label">
                                                         Staff<br>`:
-                                                            `<input type="checkbox" id="s_checked_${resp.username}"
+                        `<input type="checkbox" id="s_checked_${resp.username}"
                                                             name="staff_perm" value="staff"
                                                             class="form-check-label">
                                                         Staff<br>`
-                                                        }
+                    }
                                                     </fieldset>
                                                 </td>
                                             </tr>
@@ -586,7 +599,7 @@
                     </div>
                     <!-- End of Delete Modal -->
                 </td>`
-               
+
                 location.reload();
             }
         ).fail((error) => {
@@ -613,6 +626,7 @@
             // Show validation errors
             if (username == '') {
                 jQuery('#username')[0].setCustomValidity('Username cannot have whitespaces');
+                jQuery('#username')[0].reportValidity();
             } else if (name == '') {
                 jQuery('#name')[0].reportValidity();
             } else {

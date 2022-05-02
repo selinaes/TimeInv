@@ -1,5 +1,5 @@
-<!-- TimeInv Transactions Page. Author: Candice Ye -->
 {% extends "base.html" %}
+<!-- TimeInv Transactions Page. Author: Candice Ye -->
 
 {% block head_stuff %}
 <title>Transactions | TimeInv</title>
@@ -35,13 +35,13 @@
                 </li>
                 {% endif %}
             </ul>
-            <span>
+            <div>
                 <form method="POST" action="{{url_for('logout')}}">
                     <button type="submit" class="btn btn-outline-light">
                       Log out
                     </button>
                 </form>
-            </span>
+            </div>
         </div>
     </div>
 </nav>
