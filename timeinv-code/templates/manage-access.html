@@ -427,7 +427,8 @@
             update_member(username, name, role, permission);
             $("#edit_" + username).modal('hide');
             $('.modal-backdrop').remove();
-        } if (!validity) {
+        } 
+        if (!validity) {
             check_validity(username);
         }
         if (name == '') {
@@ -614,9 +615,14 @@
         var role = $("#role").val();
         var permissions = build_new_permissions();
 
-        if (permissions !== '' && !username.includes(' ') &&
+        if (username.length > 10){
+            jQuery("#username")[0].setCustomValidity("Username cannot be longer than 10 characters");
+            jQuery("#username")[0].reportValidity();
+        }
+        else if (permissions !== '' && !username.includes(' ') &&
             name !== '' && role !== '') {
-            add_member(username, name, role, permissions)
+            add_member(username, name, role, permissions);
+            location.reload();
             $("#add").modal('hide');
             $('.modal-backdrop').remove();
         } else if (permissions == '') {

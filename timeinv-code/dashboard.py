@@ -26,6 +26,7 @@ def inventory_below_threshold(conn, threshold):
     """
     curs.execute(sql, [threshold])
     results = curs.fetchall()
+    print(results)
     return results
 
 
