@@ -84,10 +84,18 @@ def change_threshold(conn, sku, threshold):
         None
     """ 
     curs = dbi.dict_cursor(conn)
-    sql = """update product 
+    curs.execute("start transaction")
+    sql1 = "select * from product where sku = %s"
+    curs.execute(sql1, [sku])
+    results = curs.fetchall()
+    if len(results) == 0:
+        curs.execute("rollback")
+        raise Exception("No product found with given sku")
+    sql2 = """update product 
     set threshold = %s 
     where sku = %s"""
-    curs.execute(sql, [threshold, sku])
+    curs.execute(sql2, [threshold, sku])
+    curs.execute("commit")
     conn.commit()
 
 def record_sale(conn, sku, amount, timestamp, last_modified_by):

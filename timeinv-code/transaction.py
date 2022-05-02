@@ -45,7 +45,7 @@ def transaction_sort(conn, by, order):
     transaction.timestamp, transaction.amount 
     from product, transaction 
     where product.sku = transaction.sku 
-    order by """ + order_by +  " " + order
+    order by """ + by + " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results

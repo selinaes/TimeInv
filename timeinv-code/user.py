@@ -41,8 +41,17 @@ def insert_new_account(conn, username, hashed):
     curs = dbi.cursor(conn)
     if len(username) > 10:
         raise Exception("Could not sign up user. The username must have at most 10 characters.")
-    sql = "insert into userpass (username, hashed) values (%s, %s)"
-    curs.execute(sql, [username, hashed])
+    sql = "select * from staff where username = %s"
+    sql1 = "insert into userpass (username, hashed) values (%s, %s)"
+    curs.execute("start transaction")
+    curs.execute(sql, [username])
+    result = curs.fetchall()
+    if len(result) == 0:
+        curs.execute("rollback")
+        raise Exception("""A user with the given username has not been added to your
+                        organization. Contact your manager to request access.""")
+    curs.execute(sql1, [username, hashed])
+    curs.execute("commit")
     conn.commit()
     
 
@@ -63,3 +72,20 @@ def username_exists(conn, username):
     curs.execute(sql, [username])
     results = curs.fetchall()
     return len(results) > 0
+
+def get_permissions(conn, username):
+    """
+    Returns permissions for a given user
+
+    Parameters:
+        conn: a connection object
+        username (string): a username
+
+    Returns:
+        A dictionary type object with the permissions for a username
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select permission from staff where username =  %s"
+    curs.execute(sql, [username])
+    results = curs.fetchone()
+    return results

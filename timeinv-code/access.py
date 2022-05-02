@@ -6,18 +6,20 @@
 import cs304dbi as dbi
 
 
-def get_all_access(conn):
+def get_all_access(conn, username):
     """
-    Returns all users in the current db
+    Returns all users in the current db except from the user with the 
+    given username
     Parameters:
         conn: a connection object
+        username (string): a given username
     Returns:
         A list of dictionaries, where each dictionary represents
         a user
     """
     curs = dbi.dict_cursor(conn)
-    sql = "select * from staff order by username"
-    curs.execute(sql)
+    sql = "select * from staff where username <> %s order by username"
+    curs.execute(sql, [username])
     results = curs.fetchall()
     return results
 
@@ -47,12 +49,39 @@ def edit_member(conn, username, name, role, permission):
         name (role): the user's role
         name (permission): the user's permission
     Returns:
-        The new member information
+        A dictionary type object with the updated member information
     """
     curs = dbi.dict_cursor(conn)
-    print(username)
     sql = "update staff set name =  %s, role = %s, permission = %s where username = %s"
+    curs.execute("start transaction")
     curs.execute(sql, [name, role, permission, username])
+    sql2 = "select * from staff where username = %s"
+    curs.execute(sql2, [username])
+    result = curs.fetchone()
+    curs.execute("commit")
     conn.commit()
-    return ({'username': username, 'name': name, 'role': role, 
-    'permission': permission})
+    return result
+
+
+def add_member(conn, username, name, role, permission):
+    """
+    Add a member from the staff table given a username
+    Parameters:
+        conn: a connection object
+        username (string): a username from the staff table
+        name (string): the user's name
+        name (role): the user's role
+        name (permission): the user's permission
+    Returns:
+        A dictionary type object with the new member information
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "insert into staff (username, name, role, permission) values (%s, %s, %s, %s)"
+    curs.execute("start transaction")
+    curs.execute(sql, [username, name, role, permission])
+    sql2 = "select * from staff where username = %s"
+    curs.execute(sql2, [username])
+    result = curs.fetchone()
+    curs.execute("commit")
+    conn.commit()
+    return result

@@ -9,7 +9,7 @@ from flask import (Flask, render_template, make_response, url_for, request,
 app = Flask(__name__)
 
 import sys, os, imghdr, random, datetime
-import user
+import user, dashboard, products as prod, transaction, orders, access
 import cs304dbi as dbi
 import bcrypt
 
@@ -37,7 +37,7 @@ def login():
         passwd1 = request.form.get('password')
 
         conn = dbi.connect()
-        row = user.get_password_name(conn, username)
+        row = user.get_password_by_username(conn, username)
         if row is None:
         # Same response as wrong password
             flash("Login incorrect. No account for the given username.", "error")
@@ -51,6 +51,8 @@ def login():
         if hashed2_str == row['hashed']:
             session['username'] = username
             session['logged_in'] = True
+            permissions = user.get_permissions(conn, username)
+            session['permissions'] = permissions.get('permission')
             return redirect(url_for('index'))
 
         flash("Login incorrect. Wrong password.", "error")
@@ -72,13 +74,12 @@ def signup():
         conn = dbi.connect()
 
         try:
-            users.insert_new_account(conn, username, stored)
+            user.insert_new_account(conn, username, stored)
             flash("The account was successfully created.", "success")
             return redirect(url_for('login'))
 
         except Exception as e:
-            print(e.args)
-            if len(e.args) == 1 and 'characters' in e.args[0]:
+            if len(e.args) == 1 and ('characters' in e.args[0] or 'organization' in e.args[0]):
                 flash(e.args[0], "error")
             elif len(e.args) == 2 and "key 'PRIMARY'" in e.args[1]:
                 flash("The username you chose is taken. Please choose another username.", "error")
@@ -87,7 +88,7 @@ def signup():
             return render_template('signup.html')
 
 
-@app.route('/logout/', methods = ['POST'])
+@app.route('/logout/', methods = ['GET', 'POST'])
 def logout():
     if ('username' in session and 'logged_in' in session):
         session.pop('username')
@@ -96,6 +97,8 @@ def logout():
 
 @app.route('/', methods = ['GET','POST'])
 def index():
+    permissions = session.get('permissions', '')
+
     # Check if user is logged in
     if session.get('logged_in') == None:
         return redirect(url_for('login'))
@@ -118,7 +121,7 @@ def index():
                 results = dashboard.inventory_below_threshold(conn,request.args.get('number'))
                 if len(results) == 0:
                     flash("No products found for the given threshold", "error")
-        return render_template('main.html', results = results)
+        return render_template('main.html', results = results, permissions = permissions)
     # 'POST' is for 1. Modify Threshold 2. recording new sales
     else:
         try:
@@ -143,15 +146,21 @@ def index():
                 flash(e.args[0], "error")
             elif len(e.args) == 1 and 'No product found' in e.args[0]:
                 flash(e.args[0], "error")
+            elif len(e.args) == 1 and 'given sku' in e.args[0]:
+                flash(e.args[0], "error")
             else:
                 flash("Error processing form. Try again.", "error")
-        return render_template('main.html')
+        return render_template('main.html', permissions = permissions)
 
 @app.route('/products/', methods = ['GET', 'POST'])
 def products():
-    # Check if user is logged in
-    if session.get('logged_in') == None:
-        return redirect(url_for('login'))
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
 
     conn = dbi.connect()
     if request.method == 'GET':
@@ -167,7 +176,8 @@ def products():
         return render_template('products.html', 
         products = results, 
         search = request.args.get('search'),
-        open_new_product = 'False')
+        open_new_product = 'False', 
+        permissions = permissions)
 
     # Request is POST. Add a new product.
     else:
@@ -187,14 +197,16 @@ def products():
                 else: # Error unrelated to format
                     flash("Error adding the product. The picture added could not be uploaded.", "error")
                 results = prod.get_all_products(conn)
-                return render_template('products.html', products=results, product_data={})
+                return render_template('products.html', products=results, product_data={}, 
+                permissions=permissions)
             
             # If file upload was sucessful, insert the product 
             prod.product_insert(conn, product_data['sku'], product_data['name'], 
             product_data['price'], session.get('username'), file_name)
             results = prod.get_all_products(conn)
             flash("The product was successfully added", "success")
-            return render_template('products.html', products=results, product_data={})
+            return render_template('products.html', products=results, product_data={},
+             permissions = permissions)
 
         except Exception as e:
             if (len(e.args) > 1 and 'Duplicate entry' in e.args[1]):
@@ -203,14 +215,19 @@ def products():
             else:
                 flash('Error adding the product. Please try again.', "error")
             results = prod.get_all_products(conn)
-            return render_template('products.html', products=results, product_data={})
+            return render_template('products.html', products=results, product_data={}, 
+            permissions=permissions)
 
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
-    # Check if user is logged in
-    if session.get('logged_in') == None:
-        return redirect(url_for('login'))
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
 
     conn = dbi.connect()
     results = prod.get_all_products(conn)
@@ -222,7 +239,8 @@ def edit_product(sku):
 
     # Request is GET
     if request.method == 'GET':
-        return render_template('products.html', sku = sku, products=results, edit=True)
+        return render_template('products.html', sku = sku, products=results, edit=True, 
+        permissions=permissions)
 
     # Request is POST
     else:
@@ -239,7 +257,8 @@ def edit_product(sku):
                 else: # Error unrelated to format
                     flash("Error adding the product. The picture added could not be uploaded.", "error")
                 results = prod.get_all_products(conn)
-                return render_template('products.html', products=results, product_data={})
+                return render_template('products.html', products=results, product_data={}, 
+                permissions=permissions)
             
             # If no issues with picture, try to insert product
             updated_products = prod.update_product(conn, request.form['product-name'], 
@@ -250,7 +269,8 @@ def edit_product(sku):
             # SKU hasn't changed
             if sku == request.form['product-sku']:
                 return render_template('products.html', sku = sku, 
-                        products=updated_products, edit=True)
+                        products=updated_products, edit=True, 
+                        permissions = permissions)
             # SKU has changed, we need to redirect
             else:
                 return redirect(url_for('edit_product', sku = request.form['product-sku']))
@@ -262,14 +282,18 @@ def edit_product(sku):
             else:
                 flash("Error updating the product. Try again.", "error")
             return render_template('products.html', sku = sku, 
-            products=results, edit=True)
+            products=results, edit=True, permissions = permissions)
             
 
 @app.route('/products/delete/<sku>', methods=['POST'])
 def delete_product(sku):
-    # Check if user is logged in
-    if session.get('logged_in') == None:
-        return redirect(url_for('login'))
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
 
     conn = dbi.connect()
     try:
@@ -282,12 +306,16 @@ def delete_product(sku):
 
 @app.route('/order_products/', methods = ['GET', 'POST'])
 def order_products():
-    # Check if user is logged in
-    if session.get('logged_in') == None:
-        return redirect(url_for('login'))
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
 
     if request.method == 'GET':
-        return render_template('order.html')
+        return render_template('order.html', permissions = permissions)
     # Request is POST
     else:
         conn = dbi.connect()
@@ -298,20 +326,24 @@ def order_products():
             flash("""The order for product with
              SKU """+ request.form['product-sku'] +" was sucessfully added.", 
              "success")
-            return render_template('order.html')
+            return render_template('order.html', permissions = permissions)
         except Exception as e:
             if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
                 flash("Error adding the order: the product with the SKU provided doesn't exist.",
                  "error")
             else:
                 flash("Error adding order.", "error")
-            return render_template('order.html')
+            return render_template('order.html', permissions = permissions)
 
 @app.route('/transactions/')
 def transactions():
-    # Check if user is logged in
-    if session.get('logged_in') == None:
-        return redirect(url_for('login'))
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'transaction' not in permissions:
+        if 'transaction' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
 
     conn = dbi.connect()
     if request.args:
@@ -326,21 +358,33 @@ def transactions():
     else:
         results = transaction.get_all_transactions(conn)
     return render_template('transactions.html', transactions = results, 
-    search = request.args.get('search'))
+    search = request.args.get('search'), permissions = permissions)
 
 @app.route('/manage_access/', methods = ['GET', 'POST'])
 def users():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'staff' not in permissions:
+        if 'staff' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
+    
+    # Send current user
+    username = session.get('username', '')
+ 
     if request.method == 'GET':
         conn = dbi.connect()
-        results = access.get_all_access(conn)
-        return render_template('manage-access.html', users = results)
+        results = access.get_all_access(conn, username)
+        return render_template('manage-access.html', users = results, 
+        permissions = permissions)
 
 # AJAX routes
 @app.route('/username_exists/', methods = ['POST'])
 def username_exists():
     conn = dbi.connect()
     username = request.form.get('username', '')
-    return jsonify(users.username_exists(conn, username))
+    return jsonify(user.username_exists(conn, username))
 
 @app.route('/delete_member/', methods = ['POST'])
 def delete_member():
@@ -357,14 +401,56 @@ def delete_member():
 def edit_member():
     conn = dbi.connect()
     username = request.form.get('username', '')
-    username = request.form.get('name', '')
+    name = request.form.get('name', '')
     role = request.form.get('role', '')
     permission = request.form.get('permission', '')
+    # Checking permission format
+    if ',' in permission:
+        permission_levels = permission.split(',')
+        known_levels = 'product, transaction, staff, supplier, supplierTerm'
+        if all(element in known_levels for element in permission_levels) == False:
+           message = jsonify(message='Error editing member')
+           return make_response(message, 400) 
+    else:
+        message = jsonify(message='Error editing member')
+        return make_response(message, 400)
     try:
-        result = access.edit_member(conn, username)
+        result = access.edit_member(conn, username, name, role, permission)
         return jsonify(result)
     except:
         message = jsonify(message='Error editing member')
+        return make_response(message, 400)
+
+@app.route('/add_member/', methods = ['POST'])
+def add_member():
+    conn = dbi.connect()
+
+    # Data
+    username = request.form.get('username', '')
+    name = request.form.get('name', '')
+    role = request.form.get('role', '')
+    permission = request.form.get('permission', '')
+
+    # Checking permission format
+    if ',' in permission:
+        permission_levels = permission.split(',')
+        known_levels = 'product, transaction, staff, supplier, supplierTerm'
+        if all(element in known_levels for element in permission_levels) == False:
+           message = jsonify(message='Error adding member')
+           return make_response(message, 400) 
+    else:
+        message = jsonify(message='Error adding member')
+        return make_response(message, 400)
+    try:
+        result = access.add_member(conn, username, name, role, permission)
+        return jsonify(result)
+    except Exception as e:
+        print(e)
+        if (len(e.args) == 2 and 'Duplicate entry' in e.args[1]):
+            message = jsonify(message="""Error adding member. A member with the 
+            username {} already exists.""".format(username))
+        else:
+            message = jsonify(message='Error adding member')
         return make_response(message, 400)
 
 @app.errorhandler(404)

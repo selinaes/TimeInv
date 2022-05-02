@@ -19,15 +19,22 @@
                 <li class="nav-item">
                     <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
                 </li>
+                {% if 'transaction' in permissions %}
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
                 </li>
+                {% endif %}
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('products')}}">Products</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link active" href="{{url_for('order_products')}}">Product Orders</a>
                 </li>
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Users</a>
+                </li>
+                {% endif %}
             </ul>
             <span>
                 <form method="POST" action="{{url_for('logout')}}">
