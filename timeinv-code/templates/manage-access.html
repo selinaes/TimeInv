@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+{% block head_stuff %}
+<title>Manage Users | TimeInv</title>
+{% endblock %}
+
+<!-- TimeInv User Page. Author: Francisca Moya Jimenez -->
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                {% if 'transaction' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+                </li>
+                {% endif %}
+                {% if 'product' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+            </ul>
+            <div>
+                <form method="POST" action="{{url_for('logout')}}">
+                    <button type="submit" class="btn btn-outline-light">
+                        Log out
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <div>
+        <h1>Manage Access</h1>
+        <div class="d-flex align-items-start justify-content-between pb-1">
+            <p>
+                Add, remove and edit the access members of your organization to TimeInv
+            </p>
+            <button type="submit" class="btn btn-primary" name="add" data-toggle="modal" data-target="#add">
+                Add a new member
+            </button>
+            <!-- Add Modal -->
+            <div class="modal fade" id="add" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Add Member</h5>
+                            <button type="button" id="close" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <table class="form">
+                                <tr>
+                                    <td>
+                                        <label for="username" class="control-label">Username:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="username" name="person_name"
+                                            required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="name" class="control-label">Name:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="name" name="person_name" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="role" class="control-label">Role:</label>
+                                    </td>
+                                    <td>
+                                        <input class="form-control" id="role" name="role" type="text" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label class="control-label">Permission:</label>
+                                    </td>
+                                    <td>
+                                        <fieldset>
+                                            <label for="product">
+                                                <input type="checkbox" id="product" name="product_perm" value="product"
+                                                    class="form-check-label">
+                                                Product<br>
+                                            </label>
+                                            <label for="transaction">
+                                                <input type="checkbox" id="transaction" name="transaction"
+                                                    value="transaction" class="form-check-label">
+                                                Transaction<br>
+                                            </label>
+                                            <label for="staff">
+                                                <input type="checkbox" id="staff" name="staff" value="staff"
+                                                    class="form-check-label">
+                                                Staff<br>
+                                            </label>
+                                        </fieldset>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="container pt-5">
+                                <div class="d-flex justify-content-end">
+                                    <div class="px-2">
+                                        <button type="button" class="btn btn-secondary" id="close-modal"
+                                            data-dismiss="modal">Cancel</button>
+                                    </div>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary" id="submit_new">Submit</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ show_messages_filtered() }}
+    </div>
+    <div>
+        <p id="error" class="error"></p>
+    </div>
+    <table class="table table-striped" id="#myTable">
+        <thead>
+            <tr>
+                <th scope="col">Username</th>
+                <th scope="col">Name</th>
+                <th scope="col">Role</th>
+                <th scope="col">Permissions</th>
+                <th scope="col">Edit member</th>
+                <th scope="col">Delete member</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in users %}
+            <tr id="{{result.username}}">
+                <td id="{{result.username}}_username">{{result.username}}</td>
+                <td id="{{result.username}}_name">{{result.name}}</td>
+                <td id="{{result.username}}_role">{{result.role}}</td>
+                <td id="{{result.username}}_permissions">{{result.permission}}</td>
+                <td>
+                    <button class="btn btn-primary" data-toggle="modal" data-target="#edit_{{result.username}}"
+                        id="edit_button_{{result.username}}">Edit</button>
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="edit_{{result.username}}" tabindex="-1" role="dialog"
+                        aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Member</h5>
+                                    <button type="button" id="close2{{result.username}}" class="close"
+                                        data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <table class="form">
+                                        <tr>
+                                            <td>
+                                                <label for="person_name_{{result.username}}"
+                                                    class="control-label">Name:</label>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control"
+                                                    id="person_name_{{result.username}}" name="person_name"
+                                                    value="{{result.name}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label for="person_role_{{result.username}}"
+                                                    class="control-label">Role:</label>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" id="person_role_{{result.username}}"
+                                                    name="person_role" type="text" value="{{result.role}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label
+                                                    class="control-label">Permission:</label>
+                                            </td>
+                                            <td>
+                                                <fieldset>
+                                                    {% if 'product' in result.permission %}
+                                                    <label for="p_checked_{{result.username}}">
+                                                        <input type="checkbox" id="p_checked_{{result.username}}"
+                                                            name="product_perm" value="product" class="form-check-label"
+                                                            checked>Product
+                                                    </label>
+                                                    {% else %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="p_checked_{{result.username}}">
+                                                        <input type="checkbox" id="p_checked_{{result.username}}"
+                                                            name="product_perm" value="product"
+                                                            class="form-check-label">
+                                                        Product<br>
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'transaction' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="t_checked_{{result.username}}">
+                                                        <input type="checkbox" id="t_checked_{{result.username}}"
+                                                            name="transaction_perm" value="transaction" checked
+                                                            class="form-check-label">
+                                                        Transaction<br>
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="t_checked_{{result.username}}">
+                                                        <input type="checkbox" id="t_checked_{{result.username}}"
+                                                            name="transaction_perm" value="transaction"
+                                                            class="form-check-label">
+                                                        Transaction<br>
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'staff' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="s_checked_{{result.username}}">
+                                                        <input type="checkbox" id="s_checked_{{result.username}}"
+                                                            name="staff_perm" value="staff" checked
+                                                            class="form-check-label">
+                                                        Staff<br>
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="s_checked_{{result.username}}">
+                                                        <input type="checkbox" id="s_checked_{{result.username}}"
+                                                            name="staff_perm" value="staff" class="form-check-label">
+                                                        Staff<br>
+                                                    </label>
+                                                    {% endif %}
+                                                </fieldset>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <div class="container pt-5">
+                                        <div class="d-flex justify-content-end">
+                                            <div class="px-2">
+                                                <button type="button" class="btn btn-secondary"
+                                                    id="close-modal{{result.username}}"
+                                                    data-dismiss="modal">Cancel</button>
+                                            </div>
+                                            <div>
+                                                <button type="submit" class="btn btn-primary"
+                                                    id="submit_edit_{{result.username}}">Save
+                                                    changes</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-danger" data-toggle="modal" data-target="#delete_{{result.username}}">
+                        Delete</button>
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="delete_{{result.username}}" tabindex="-1" role="dialog"
+                        aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Delete</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form method="POST">
+                                    <div class="modal-body">
+                                        <p>
+                                            Are you sure that you want to delete member
+                                            <span class="bolded">
+                                                {{result.username}}
+                                            </span>? Their account will be deleted and they
+                                            will not be able to access it.
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                                            id="close_modal_{{result.username}}">Cancel</button>
+                                        <button type="button" class="btn btn-danger" value="{{result.username}}"
+                                            id="confirm_delete_{{result.username}}">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End of Delete Modal -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!-- End of Delete Modal -->
+</div>
+
+{% endblock %}
+
+{% block end_scripts %}
+<script>
+    // Delete member from org
+    function delete_member(username) {
+        $.post('/delete_member/',
+            { 'member': username },
+            function (resp) {
+                var value = JSON.stringify(resp);
+                console.log(value);
+                if (value === 'true') {
+                    $('#' + username).remove();
+                } else {
+                    $("#error").text("Error removing member.");
+                }
+            })
+    }
+
+    // Update member info
+    function update_member(username, name, role, permission) {
+        $.post('/edit_member/',
+            { 'username': username, 'name': name, 'role': role, 'permission': permission },
+            function (resp) {
+                // Update DOM
+                $("#" + username + "_name").text(resp.name);
+                $("#" + username + "_role").text(resp.role);
+                $("#" + username + "_permissions").text(resp.permission);
+                $("#" + "person_name_" + username).val(resp.name);
+                $("#" + "person_role_" + username).val(resp.role);
+                $("#" + "person_permission_" + username).val(resp.permission);
+
+            }
+        ).fail(() => {
+            $('#error').text("Error editing member. Check the permissions.")
+        });
+    }
+
+    // Remove error message if user clicks on anything
+    $(document).on('click', function (event) {
+        $("#error").text("");
+    })
+
+    // Change checked attribute if checkbox is checked/unchecked by user
+    $("input[type=checkbox]").on('change',
+        (event) => {
+            var id = event.target.id;
+            var checked = $('#' + id).attr('checked');
+            if (checked !== undefined) {
+                document.getElementById(id).removeAttribute('checked');
+            } else {
+                document.getElementById(id).setAttribute('checked', true);
+            }
+        });
+
+
+    // Checks whether at least one checkbox is checked
+    function is_checked(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+
+        for (let i = 0; i < checkbox_length; i++) {
+            let checked = $('#' + checkboxes[i].id).attr('checked');
+            if (checked !== undefined) return true;
+        }
+        return false;
+    }
+
+    // Editing a user: Show an error if no checkboxes are selected 
+    function check_validity(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+        const error_message = !is_checked() ? 'At least one checkbox must be selected.' : '';
+        checkboxes[0].setCustomValidity(error_message);
+        checkboxes[0].reportValidity();
+    }
+
+    // Call delete member if confirm delete is clicked
+    $("button[id*='confirm_delete']").on('click', function (event) {
+        var username = $(this).attr('id').substring(15);
+        $("#delete_" + username).modal('hide');
+        $('.modal-backdrop').remove();
+        delete_member(username);
+    });
+
+    // Builds permissions string in SQL's set format 
+    function build_permissions(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+        const get_value = (val, permission_type) => { return (val === undefined ? '' : permission_type) };
+        return (get_value($('#' + checkboxes[0].id).attr('checked'), 'product,') +
+            get_value($('#' + checkboxes[1].id).attr('checked'), 'transaction,') +
+            get_value($('#' + checkboxes[2].id).attr('checked'), 'staff'));
+    }
+
+    // Submits the edit or calls function to show error if info is invalid
+    $("button[id*='submit_edit']").on('click', function (event) {
+        var username = $(this).attr('id').substring(12);
+        var name = $("#person_name_" + username).val()
+        var role = $("#person_role_" + username).val()
+        var permission = build_permissions(username);
+        var validity = is_checked(username);
+
+        if (permission !== '' && validity && name !== '' && role !== '') {
+            update_member(username, name, role, permission);
+            $("#edit_" + username).modal('hide');
+            $('.modal-backdrop').remove();
+        } 
+        if (!validity) {
+            check_validity(username);
+        }
+        if (name == '') {
+            jQuery("#person_name_" + username)[0].reportValidity();
+        }
+        if (role == '') {
+            jQuery("#person_role_" + username)[0].reportValidity();
+        }
+    });
+
+    // Adding a new member
+    // Builds permissions string in SQL's set format 
+    function build_new_permissions() {
+        const get_value = (val, permission_type) => { return (val === undefined ? '' : permission_type) };
+        return (get_value($('#product').attr('checked'), 'product,') +
+            get_value($('#transaction').attr('checked'), 'transaction,') +
+            get_value($('#staff').attr('checked'), 'staff'));
+    }
+
+    // Post a new member
+
+    // Update member info
+    function add_member(username, name, role, permission) {
+        $.post('/add_member/',
+            { 'username': username, 'name': name, 'role': role, 'permission': permission },
+            function () {
+                // Reload page
+                location.reload();
+            }
+        ).fail((error) => {
+            $('#error').text(error.responseJSON.message);
+        });
+    }
+
+    // Add a new member when submit
+    $("#submit_new").on('click', () => {
+        var username = $("#username").val();
+        var name = $("#name").val();
+        var role = $("#role").val();
+        var permissions = build_new_permissions();
+
+        if (username.length > 10){
+            jQuery("#username")[0].setCustomValidity("Username cannot be longer than 10 characters");
+            jQuery("#username")[0].reportValidity();
+        }
+        else if (permissions !== '' && !username.includes(' ') &&
+            name !== '' && role !== '') {
+            add_member(username, name, role, permissions);
+            location.reload();
+            $("#add").modal('hide');
+            $('.modal-backdrop').remove();
+        } else if (permissions == '') {
+            jQuery('#product')[0].setCustomValidity('At least one checkbox must be selected.');
+            jQuery('#product')[0].reportValidity();
+        } else {
+            // Show validation errors
+            if (username == '') {
+                jQuery('#username')[0].setCustomValidity('Username cannot have whitespaces');
+                jQuery('#username')[0].reportValidity();
+            } else if (name == '') {
+                jQuery('#name')[0].reportValidity();
+            } else {
+                jQuery('#role')[0].reportValidity();
+            }
+        }
+
+    });
+
+    // Empty add new member modal when closed
+    $('#add').on('hidden.bs.modal', () => {
+        $("#username").val('');
+        $("#name").val('');
+        $("#role").val('');
+        document.getElementById('product').removeAttribute('checked');
+        document.getElementById('transaction').removeAttribute('checked');
+        document.getElementById('staff').removeAttribute('checked');
+    });
+</script>
+{% endblock %}

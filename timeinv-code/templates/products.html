@@ -1,6 +1,7 @@
-<!-- TimeInv Main Page. Author: Francisca Moya Jimenez -->
 {% extends "base.html" %}
 {% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+<!-- TimeInv Main Page. Author: Francisca Moya Jimenez -->
 
 {% block head_stuff %}
 <title>Products | TimeInv</title>
@@ -19,23 +20,30 @@
                 <li class="nav-item">
                     <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
                 </li>
+                {% if 'transaction' in permissions%}
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
                 </li>
+                {% endif %}
                 <li class="nav-item">
                     <a class="nav-link active" href="{{url_for('products')}}">Products</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
                 </li>
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+                {% endif %}
             </ul>
-            <span>
+            <div>
                 <form method="POST" action="{{url_for('logout')}}">
                     <button type="submit" class="btn btn-outline-light">
                       Log out
                     </button>
                 </form>
-            </span>
+            </div>
         </div>
     </div>
 </nav>
@@ -109,7 +117,7 @@
                                     <label for="picture" class="control-label">Picture:</label>
                                 </td>
                                 <td>
-                                    <input type="file" name="picture">
+                                    <input type="file" id="picture" name="picture">
                                 </td>
                             </tr>
                             
@@ -227,7 +235,7 @@
                             <div class="modal-content">
                                 <div class="modal-header">
                                     <h5 class="modal-title">Edit Product</h5>
-                                    <button type="button" id="close" class="close" data-dismiss="modal"
+                                    <button type="button" id="close{{product.sku}}" class="close" data-dismiss="modal"
                                         aria-label="Close">
                                         <span aria-hidden="true">&times;</span>
                                     </button>
@@ -278,17 +286,17 @@
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <label for="picture" class="control-label">Picture:</label>
+                                                    <label for="product-pic{{product.sku}}" class="control-label">Picture:</label>
                                                 </td>
                                                 <td>
-                                                    <input type="file" name="picture">
+                                                    <input type="file" id="product-pic{{product.sku}}" name="picture">
                                                 </td>
                                             </tr>
                                         </table>
                                         <div class="container pt-5">
                                             <div class="d-flex justify-content-end">
                                                 <div class="px-2">
-                                                    <button type="button" class="btn btn-secondary" id="close-modal"
+                                                    <button type="button" class="btn btn-secondary" id="close-modal{{product.sku}}"
                                                         data-dismiss="modal">Close</button>
                                                 </div>
                                                 <div>
@@ -307,7 +315,7 @@
                         <div class="modal-dialog" role="document">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="delete">Delete Product</h5>
+                                    <h5 class="modal-title" id="delete2{{product.sku}}">Delete Product</h5>
                                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                         <span aria-hidden="true">&times;</span>
                                     </button>

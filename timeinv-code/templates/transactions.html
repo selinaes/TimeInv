@@ -1,5 +1,5 @@
-<!-- TimeInv Transactions Page. Author: Candice Ye -->
 {% extends "base.html" %}
+<!-- TimeInv Transactions Page. Author: Candice Ye -->
 
 {% block head_stuff %}
 <title>Transactions | TimeInv</title>
@@ -21,20 +21,27 @@
                 <li class="nav-item">
                     <a class="nav-link active" href="{{url_for('transactions')}}">Transactions</a>
                 </li>
+                {% if 'product' in permissions %}
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('products')}}">Products</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
                 </li>
+                {% endif %}
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+                {% endif %}
             </ul>
-            <span>
+            <div>
                 <form method="POST" action="{{url_for('logout')}}">
                     <button type="submit" class="btn btn-outline-light">
                       Log out
                     </button>
                 </form>
-            </span>
+            </div>
         </div>
     </div>
 </nav>
@@ -131,11 +138,6 @@
         {% endfor %}
     </tbody>
   </table>
-
-<div class="row">
-    
-
-</div>
 
 
 {% endblock %}
