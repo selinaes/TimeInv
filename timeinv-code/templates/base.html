@@ -41,9 +41,11 @@
           </li>
         </ul>
         <span>
-          <button class="btn btn-outline-light">
-            Log out
-          </button>
+          <form method="POST" action="{{url_for('logout')}}">
+            <button type="submit" class="btn btn-outline-light">
+              Log out
+            </button>
+          </form>
         </span>
       </div>
     </div>
@@ -69,7 +71,7 @@
   {% block end_scripts %}
   {% endblock %}
 
-   
+
 </body>
 
 </html>

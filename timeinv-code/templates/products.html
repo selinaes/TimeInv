@@ -30,9 +30,11 @@
                 </li>
             </ul>
             <span>
-                <button class="btn btn-outline-light">
-                    Log out
-                </button>
+                <form method="POST" action="{{url_for('logout')}}">
+                    <button type="submit" class="btn btn-outline-light">
+                      Log out
+                    </button>
+                </form>
             </span>
         </div>
     </div>
@@ -65,7 +67,8 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form class="modal-form" method="POST" action="{{url_for('products')}}">
+                    <form class="modal-form" method="POST" action="{{url_for('products')}}"
+                    enctype="multipart/form-data">
                         {{ show_messages_filtered() }}
                         <table class="form">
                             <tr>
@@ -101,6 +104,15 @@
                                     </div>
                                 </td>
                             </tr>
+                            <tr>
+                                <td>
+                                    <label for="picture" class="control-label">Picture:</label>
+                                </td>
+                                <td>
+                                    <input type="file" name="picture">
+                                </td>
+                            </tr>
+                            
                         </table>
                         <div class="container pt-5">
                             <div class="d-flex justify-content-end">
@@ -189,7 +201,7 @@
                 <div class="card-body">
                     <img class="card-img-top"
                         src="{{url_for('static', filename = 'uploads/' + product.image_file_name ) 
-                        if product.image_file_name !=  'null' else 'https://via.placeholder.com/266x140'}}"
+                        if product.image_file_name !=  None else 'https://via.placeholder.com/266x140'}}"
                         alt="Product SKU:{{product.sku}} image" width="266" height="200">
                     <h5 class="card-title pt-4">{{product.title}}</h5>
                     <div class="card-text">
