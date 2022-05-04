@@ -16,7 +16,7 @@ def get_all_transactions(conn):
     """
     curs = dbi.dict_cursor(conn)
     sql = """select tid, sku, title, timestamp, amount 
-    from product inner join transaction using (sku) order by timestamp DESC"""
+            from product inner join transaction using (sku) order by timestamp DESC"""
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -42,10 +42,10 @@ def transaction_sort(conn, by, order):
 
     # We can use user input because we have already vetted it
     sql = """select transaction.tid, transaction.sku, product.title, 
-    transaction.timestamp, transaction.amount 
-    from product, transaction 
-    where product.sku = transaction.sku 
-    order by """ + by + " " + order
+            transaction.timestamp, transaction.amount 
+            from product, transaction 
+            where product.sku = transaction.sku 
+            order by """ + by + " " + order
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -72,8 +72,8 @@ def transaction_search(conn, search_type, query):
     
     # We can use user input because we have already vetted it
     sql = """select tid, sku, title, timestamp, amount 
-    FROM product INNER JOIN transaction USING (sku) 
-    where """ + search_type + """ like %s """
+            FROM product INNER JOIN transaction USING (sku) 
+            where """ + search_type + """ like %s """
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results

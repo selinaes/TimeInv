@@ -265,9 +265,10 @@ def edit_product(sku):
                 return render_template('products.html', sku = sku, edit=True,
                 products=results, permissions=permissions)
             
-            # If no issues with picture, try to insert product
+            # If no issues with picture, try to update product
             updated_products = prod.update_product(conn, request.form['product-name'], 
-            request.form['product-price'], session.get('username'), file_name, sku, request.form['product-sku'])
+                            request.form['product-price'], session.get('username'), 
+                            file_name, sku, request.form['product-sku'])
 
             flash("The product was sucessfully updated.", "success")
 

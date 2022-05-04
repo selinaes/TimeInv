@@ -70,8 +70,7 @@ def product_search(conn, search_type, query):
         raise Exception("Type to sort by in products is not permitted")
     
     # We can use search_type because we have already vetted the input
-    sql = """select * from product 
-    where """ + search_type + """ like %s order by title"""
+    sql = "select * from product where " + search_type + " like %s order by title"
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
@@ -91,8 +90,7 @@ def products_addedby(conn, staff):
         product object that was added by the given staff member.
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select * from product where 
-    last_modified_by = %s"""
+    sql = "select * from product where last_modified_by = %s"
     curs.execute(sql, [staff])
     results = curs.fetchall()
     return results
@@ -114,8 +112,8 @@ def product_insert(conn, sku, name, price, staff, image_name):
     """
     curs = dbi.dict_cursor(conn)
     sql = """insert into product (sku, title, price, threshold, 
-    last_modified_by, image_file_name)
-    values (%s, %s, %s, %s, %s, %s)"""
+            last_modified_by, image_file_name)
+            values (%s, %s, %s, %s, %s, %s)"""
     # Threshold starts as 0 by default
     curs.execute(sql, [sku, name, price, 0, 
     staff, image_name if image_name != '' else None]) 
@@ -136,8 +134,7 @@ def sku_exists(conn, sku):
         False if it doesn't).
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select sku from product where 
-    sku = %s"""
+    sql = """select sku from product where sku = %s"""
     curs.execute(sql, [sku])
     results = curs.fetchall()
     return len(results) > 0
@@ -162,15 +159,13 @@ def update_product(conn, title, price, last_modified_by, image, og_sku, new_sku)
     """
     curs = dbi.dict_cursor(conn)
     if image != '': # Image was not added by the user
-        sql = """update product 
-        set sku = %s, title = %s, price = %s, last_modified_by = %s, image_file_name = %s
-        where sku = %s"""
+        sql = """update product set sku = %s, title = %s, price = %s, 
+                last_modified_by = %s, image_file_name = %s where sku = %s"""
         curs.execute(sql, [new_sku, title, price, last_modified_by, image, og_sku])
     
     else: # Image wasn't updated and we want to update the rest of the information
-        sql = """update product 
-        set sku = %s, title = %s, price = %s, last_modified_by = %s
-        where sku = %s"""
+        sql = """update product set sku = %s, title = %s, price = %s, 
+                last_modified_by = %s where sku = %s"""
         curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
     curs.execute("select * from product order by title")
     results = curs.fetchall()
