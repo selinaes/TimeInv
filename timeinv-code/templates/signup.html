@@ -50,19 +50,25 @@
 
 {% block end_scripts %}
 <script>
+    var username_check_url = "{{url_for('username_exists', username = '')}}";
+
     function username_check(username) {
-        $.post("{{url_for('username_exists')}}",
-            { 'username': username },
-            function (resp) {
-                var value =  JSON.stringify(resp);
-                if (value === 'true'){
-                    $("#error").text("This username is already taken.");
-                }
-            });
+        if (username !== '') {
+            $.ajax(username_check_url + username,
+                {
+                    method: 'GET', success:
+                        (resp) => {
+                            var value = JSON.stringify(resp);
+                            if (value === 'true') {
+                                $("#error").text("This username is already taken.");
+                            }
+                        }
+                });
+        }
     }
 
     $("#username").on('input', () => {
-        $("#error").text("")
+        $("#error").text("");
         var value = $("#username").val();
         username_check(value);
     })

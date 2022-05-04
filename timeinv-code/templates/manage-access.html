@@ -325,9 +325,13 @@
 {% block end_scripts %}
 <script>
     // Delete member from org
+
+    var delete_member_url = "{{url_for('delete_member', username = '')}}";
+
     function delete_member(username) {
-        $.post("{{url_for('delete_member')}}",
-            { 'member': username },
+        console.log("called delete");
+        $.ajax(delete_member_url + + username,
+        { method: 'DELETE', success:
             function (resp) {
                 var value = JSON.stringify(resp);
                 console.log(value);
@@ -336,7 +340,8 @@
                 } else {
                     $("#error").text("Error removing member.");
                 }
-            })
+            }
+        });
     }
 
     // Update member info

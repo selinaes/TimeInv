@@ -390,16 +390,14 @@ def users():
         permissions = permissions)
 
 # AJAX routes
-@app.route('/username_exists/', methods = ['POST'])
-def username_exists():
+@app.route('/username_exists/<username>')
+def username_exists(username):
     conn = dbi.connect()
-    username = request.form.get('username', '')
     return jsonify(user.username_exists(conn, username))
 
-@app.route('/delete_member/', methods = ['POST'])
-def delete_member():
+@app.route('/delete_member/<username>', methods = ['DELETE'])
+def delete_member(username):
     conn = dbi.connect()
-    username = request.form.get('member', '')
     try:
         access.remove_member(conn, username)
         return jsonify(True)
