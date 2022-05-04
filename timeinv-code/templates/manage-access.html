@@ -326,7 +326,7 @@
 <script>
     // Delete member from org
     function delete_member(username) {
-        $.post('/delete_member/',
+        $.post("{{url_for('delete_member')}}",
             { 'member': username },
             function (resp) {
                 var value = JSON.stringify(resp);
@@ -341,7 +341,7 @@
 
     // Update member info
     function update_member(username, name, role, permission) {
-        $.post('/edit_member/',
+        $.post("{{url_for('edit_member')}}",
             { 'username': username, 'name': name, 'role': role, 'permission': permission },
             function (resp) {
                 // Update DOM
@@ -449,8 +449,6 @@
     }
 
     // Post a new member
-
-    // Update member info
     function add_member(username, name, role, permission) {
         $.post('/add_member/',
             { 'username': username, 'name': name, 'role': role, 'permission': permission },

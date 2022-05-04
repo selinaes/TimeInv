@@ -49,10 +49,9 @@
 {% endblock %}
 
 {% block end_scripts %}
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script>
     function username_check(username) {
-        $.post('/username_exists/',
+        $.post("{{url_for('username_exists')}}",
             { 'username': username },
             function (resp) {
                 var value =  JSON.stringify(resp);
