@@ -65,7 +65,7 @@ def product_search(conn, search_type, query):
         product object.
     """
     curs = dbi.dict_cursor(conn)
-    order_by = {"price", "title", "sku"}
+    order_by = {"price", "title", "sku", "last_modified_by"}
     if search_type not in order_by:
         raise Exception("Type to sort by in products is not permitted")
     

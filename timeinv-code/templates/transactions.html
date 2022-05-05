@@ -35,13 +35,14 @@
                 </li>
                 {% endif %}
             </ul>
-            <div>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
                 <form method="POST" action="{{url_for('logout')}}">
-                    <button type="submit" class="btn btn-outline-light">
-                      Log out
-                    </button>
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
                 </form>
-            </div>
+              </div>
         </div>
     </div>
 </nav>
@@ -77,6 +78,7 @@
                         <option value="">Choose one</option>
                         <option value="title">Name</option>
                         <option value="sku">SKU</option>
+                        <option value="transaction.last_modified_by">Performed by</option>
                         <option value="timestamp">Timestamp</option>
                     </select>
                 </td>
@@ -119,6 +121,7 @@
         <th scope="col">SKU</th>
         <th scope="col">Product name</th>
         <th scope="col">Transaction time</th>
+        <th scope="col">Performed by</th>
         <th scope="col">Changes in amount</th>
       </tr>
     </thead>
@@ -129,6 +132,7 @@
             <td>{{results.sku}}</td>
             <td>{{results.title}}</td>
             <td>{{results.timestamp.strftime('%m-%d-%Y %I:%M %p')}}</td>
+            <td>{{results.modified_by}}</td>
             {% if results.amount > 0 %}
             <td class="text-success">{{results.amount}} (order)</td>
             {% else %}

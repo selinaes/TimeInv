@@ -3,8 +3,14 @@
 
 {% block main_content %}
 <h1>The page you are looking for was not found.</h1>
+{% if username != None %}
 <p>
-    You can go back to <a href="{{url_for('index')}}">home</a>
+    You can go back to the <a href="{{url_for('index')}}">dashboard</a>
     or reach out to the TimeInv team for assistance.
 </p>
+{% else %}
+<p>
+    You can go back to the <a href="{{url_for('login')}}">login page.</a>
+</p>
+{% endif %}
 {% endblock %}

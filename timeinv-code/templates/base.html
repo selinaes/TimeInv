@@ -24,6 +24,7 @@
         aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
+      {% if username != None %}
       <div class="collapse navbar-collapse" id="navbarText">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
@@ -48,14 +49,20 @@
           </li>
           {% endif %}
         </ul>
-        <div>
+        {% if username != None %}
+        <div class="d-flex justify-content-end">
+          {% if username != ''%}
+          <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+          {% endif %}
           <form method="POST" action="{{url_for('logout')}}">
             <button type="submit" class="btn btn-outline-light">
               Log out
             </button>
           </form>
         </div>
+        {% endif %}
       </div>
+      {% endif %}
     </div>
   </nav>
   {% endblock %}

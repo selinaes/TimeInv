@@ -34,7 +34,6 @@ def remove_member(conn, username):
         None
     """
     curs = dbi.dict_cursor(conn)
-    print(username)
     sql = "delete from staff where username = %s"
     curs.execute(sql, [username])
     conn.commit()

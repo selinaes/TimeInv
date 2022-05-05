@@ -15,8 +15,8 @@ def get_all_transactions(conn):
         in reversed time order
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select tid, sku, title, timestamp, amount 
-            from product inner join transaction using (sku) order by timestamp DESC"""
+    sql = """select tid, sku, title, timestamp, amount, transaction.last_modified_by as
+            modified_by from product inner join transaction using (sku) order by timestamp DESC"""
     curs.execute(sql)
     results = curs.fetchall()
     return results
@@ -42,7 +42,8 @@ def transaction_sort(conn, by, order):
 
     # We can use user input because we have already vetted it
     sql = """select transaction.tid, transaction.sku, product.title, 
-            transaction.timestamp, transaction.amount 
+            transaction.timestamp, transaction.amount, 
+            transaction.last_modified_by as modified_by
             from product, transaction 
             where product.sku = transaction.sku 
             order by """ + by + " " + order
@@ -66,14 +67,15 @@ def transaction_search(conn, search_type, query):
         transaction object.
     """
     curs = dbi.dict_cursor(conn)
-    cols = {"timestamp", "sku", "title"}
+    cols = {"timestamp", "sku", "title", "transaction.last_modified_by"}
     if search_type not in cols:
         raise Exception("Search not allowed for the given column")
     
     # We can use user input because we have already vetted it
-    sql = """select tid, sku, title, timestamp, amount 
-            FROM product INNER JOIN transaction USING (sku) 
-            where """ + search_type + """ like %s """
+    sql = """select tid, sku, title, timestamp, amount, 
+            transaction.last_modified_by as modified_by 
+            FROM product INNER JOIN transaction
+             USING (sku) where """ + search_type + """ like %s """
     curs.execute(sql, ['%' + query + '%'])
     results = curs.fetchall()
     return results
