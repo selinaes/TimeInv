@@ -8,7 +8,7 @@ from flask import (Flask, render_template, make_response, url_for, request,
 app = Flask(__name__)
 
 import sys, os, imghdr, random, datetime
-import user, dashboard, products as prod, transaction, orders, access
+import user, dashboard, products, supplierTerms as prod, transaction, orders, access, supplierTerms
 import cs304dbi as dbi
 import bcrypt
 
@@ -367,6 +367,32 @@ def transactions():
     else:
         results = transaction.get_all_transactions(conn)
     return render_template('transactions.html', transactions = results, 
+    search = request.args.get('search'), permissions = permissions)
+
+@app.route('/supplierTerms/')
+def supplierTerms():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'supplierTerm' not in permissions:
+        if 'supplierTerm' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
+        return redirect(url_for('logout'))
+
+    conn = dbi.connect()
+    if request.args:
+        if request.args.get('search'):
+            results = supplierTerms.term_search(conn, 
+            request.args.get('by'), 
+            request.args.get('search'))
+        else:
+            results = supplierTerms.term_sort(conn, 
+            request.args.get('sort'), 
+            request.args.get('order'))
+    else:
+        results = supplierTerm.get_all_supplierTerms(conn)
+    return render_template('supplierTerms.html', supplierTerms = results, 
     search = request.args.get('search'), permissions = permissions)
 
 @app.route('/manage_access/', methods = ['GET', 'POST'])
