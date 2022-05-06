@@ -64,8 +64,9 @@
             <tr>
                 <td>{{result.sku}}</td>
                 <td>{{result.title}}</td>
-                <td>{{result.latesttime}}</td>
-                <td>{{result.inventory}}</td>
+                <td>{{result.latesttime if result.latesttime != None 
+                    else 'No transactions have been performed'}}</td>
+                <td>{{result.inventory if result.inventory != None else 0}}</td>
                 <td>{{result.threshold}}</td>
             </tr>
             {% endfor %}

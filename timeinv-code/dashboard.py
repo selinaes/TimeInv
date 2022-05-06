@@ -92,9 +92,7 @@ def change_threshold(conn, sku, threshold):
     if len(results) == 0:
         curs.execute("rollback")
         raise Exception("No product found with given sku")
-    sql2 = """update product 
-    set threshold = %s 
-    where sku = %s"""
+    sql2 = "update product set threshold = %s where sku = %s"
     curs.execute(sql2, [threshold, sku])
     curs.execute("commit")
     conn.commit()
