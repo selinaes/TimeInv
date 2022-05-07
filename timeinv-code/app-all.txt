@@ -1,0 +1,2752 @@
+# =================================================================================
+#  TimeInv, an Inventory Management App for CS304 Project Spring '22 
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+from flask import (Flask, render_template, make_response, url_for, request,
+                   redirect, flash, session, jsonify, abort)
+app = Flask(__name__)
+
+import sys, os, imghdr, random, datetime
+import user, dashboard, products as prod, transaction, orders, access
+import cs304dbi as dbi
+import bcrypt
+
+# replace that with a random key
+app.secret_key = ''.join([ random.choice(('ABCDEFGHIJKLMNOPQRSTUVXYZ' +
+                                          'abcdefghijklmnopqrstuvxyz' +
+                                          '0123456789'))
+                           for i in range(20) ])
+
+# This gets us better error messages for certain common request errors
+app.config['TRAP_BAD_REQUEST_ERRORS'] = True
+# Image upload
+app.config['UPLOADS'] = './static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 1*1024*1024 # 1 MB
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+
+@app.route('/login/', methods = ['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    else:
+        # Log in
+        username = request.form.get('username')
+        passwd1 = request.form.get('password')
+
+        conn = dbi.connect()
+        row = user.get_password_by_username(conn, username)
+        if row is None:
+            flash("Login incorrect. No account for the given username.", "error")
+            return render_template('login.html')
+        
+        stored = row['hashed']
+        hashed2 = bcrypt.hashpw(passwd1.encode('utf-8'),
+                            stored.encode('utf-8'))
+        hashed2_str = hashed2.decode('utf-8')
+
+        if hashed2_str == row['hashed']:
+            session['username'] = username
+            session['logged_in'] = True
+            permissions = user.get_permissions(conn, username)
+            session['permissions'] = permissions.get('permission')
+            return redirect(url_for('index'))
+
+        flash("Login incorrect. Wrong password.", "error")
+        return render_template('login.html')
+
+@app.route('/signup/', methods = ['GET', 'POST'])
+def signup():
+    if request.method == 'GET':
+        return render_template('signup.html')
+    
+    # Request is POST
+    else:
+        # Sign up
+        username = request.form.get('username')
+        passwd = request.form.get('password')
+        hashed = bcrypt.hashpw(passwd.encode('utf-8'),
+                           bcrypt.gensalt())
+        stored = hashed.decode('utf-8')
+        conn = dbi.connect()
+
+        try:
+            user.insert_new_account(conn, username, stored)
+            flash("The account was successfully created.", "success")
+            return redirect(url_for('login'))
+
+        except Exception as e:
+            if len(e.args) == 1 and ('characters' in e.args[0] 
+            or 'organization' in e.args[0]):
+                flash(e.args[0], "error")
+            elif len(e.args) == 2 and "key 'PRIMARY'" in e.args[1]:
+                flash("The username you chose is taken. Please choose another username.", "error")
+            else:
+                flash("There was an error creating the account. Please try again.", "error")
+            return render_template('signup.html')
+
+
+@app.route('/logout/', methods = ['GET', 'POST'])
+def logout():
+    if ('username' in session and 'logged_in' in session):
+        session.pop('username')
+        session.pop('logged_in')
+    return redirect(url_for('index'))
+
+@app.route('/', methods = ['GET','POST'])
+def index():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in
+    if session.get('logged_in') == None:
+        return redirect(url_for('login'))
+
+    # Getting user's username
+    username = session.get('username', '')
+    conn = dbi.connect()
+
+    # 'GET' is for filtering the threshold check
+    if request.method == 'GET':
+        results = []
+        if "check-all" in request.args:
+            results = dashboard.filter_all_by_threshold(conn)
+        else: 
+            # Search by SKU
+            if request.args.get('using') == 'sku':
+                results = dashboard.inventory_by_sku(conn,request.args.get('number'))
+                if len(results) == 1 and results[0]['sku'] == None:
+                    results = []
+                    flash("No products found for the given SKU", "error")
+            # Search by threshold
+            elif request.args.get('using') == 'threshold':
+                results = dashboard.inventory_below_threshold(conn,request.args.get('number'))
+                if len(results) == 0:
+                    flash("No products found for the given threshold", "error")
+        return render_template('main.html', results = results, permissions = permissions, 
+                                username = username)
+    # 'POST' is for 1. Modify Threshold 2. recording new sales
+    else:
+        try:
+            if "threshold-form" in request.form:
+                threshold_data = {
+                    'threshold': request.form['threshold'],
+                    'sku': request.form['threshold-sku']}
+                dashboard.change_threshold(conn, threshold_data['sku'], threshold_data['threshold'])
+                flash("Threshold updated", "success")
+            elif "sale-form" in request.form:
+                sale_data = {
+                    'amount': request.form['sale-quantity'],
+                    'sku': request.form['sale-sku']}
+                # add logged-in staff detail & pass it to record_sale
+                dashboard.record_sale(conn, sale_data['sku'],
+                 sale_data['amount'], datetime.datetime.now(), 
+                 session.get('username'))
+                flash("Sale was sucessfully registered", "success")
+        except Exception as e:
+            print(e.args)
+            if len(e.args) == 1 and 'availability' in e.args[0]:
+                flash(e.args[0], "error")
+            elif len(e.args) == 1 and 'No product found' in e.args[0]:
+                flash(e.args[0], "error")
+            elif len(e.args) == 1 and 'given sku' in e.args[0]:
+                flash(e.args[0], "error")
+            else:
+                flash("Error processing form. Try again.", "error")
+        return render_template('main.html', permissions = permissions, 
+                                username = username)
+
+@app.route('/products/', methods = ['GET', 'POST'])
+def products():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if session.get('logged_in') != None and 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
+
+    # Getting user's username
+    username = session.get('username', '')
+    conn = dbi.connect()
+
+    if request.method == 'GET':
+        if request.args:
+            if request.args.get('search'):
+                results = prod.product_search(conn, request.args.get('by'), 
+                request.args.get('search'))
+            else:
+                results = prod.product_sort(conn, request.args.get('sort'), 
+                request.args.get('order'))
+        else:
+            results = prod.get_all_products(conn)
+        return render_template('products.html', 
+        products = results, 
+        search = request.args.get('search'),
+        open_new_product = 'False', 
+        permissions = permissions, username = username)
+
+    # Request is POST. Add a new product.
+    else:
+        product_data = {'name': request.form.get('product-name', ''),
+        'sku': request.form.get('product-sku', ''), 
+        'price': request.form.get('product-price', '')}
+        try:
+            # Handle picture
+            file = request.files.get('picture')
+            
+            try: 
+                file_name = prod.upload_file(file, ALLOWED_EXTENSIONS, product_data['sku'], 
+                app.config['UPLOADS'])
+
+            except Exception as e: # Early return and flash if there are any issues uploading a picture
+                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
+                    flash(e.args[0], "error")
+                else: # Error unrelated to format
+                    flash("Error adding the product. The picture added could not be uploaded.", "error")
+                results = prod.get_all_products(conn)
+                return render_template('products.html', products=results, product_data=product_data, 
+                permissions=permissions, username = username)
+            
+            # If file upload was sucessful, insert the product 
+            prod.product_insert(conn, product_data['sku'], product_data['name'], 
+            product_data['price'], session.get('username'), file_name)
+            results = prod.get_all_products(conn)
+            flash("The product was successfully added", "success")
+            return render_template('products.html', products=results, product_data={},
+             permissions = permissions, username = username)
+
+        except Exception as e:
+            if (len(e.args) > 1 and 'Duplicate entry' in e.args[1]):
+                flash('Error. The SKU indicated already corresponds to another product.'
+                , "error")
+            else:
+                flash('Error adding the product. Please try again.', "error")
+            results = prod.get_all_products(conn)
+            return render_template('products.html', products=results, product_data={}, 
+            permissions=permissions, username = username)
+
+
+@app.route('/products/edit/<sku>', methods=['GET', 'POST'])
+def edit_product(sku):
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if session.get('logged_in') != None and 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", "error")
+        return redirect(url_for('logout'))
+
+    # Getting user's username
+    username = session.get('username', '')
+    conn = dbi.connect()
+    results = prod.get_all_products(conn)
+    product_exists = prod.sku_exists(conn, sku)
+
+    # If SKU doesn't exist, throw an error
+    if not product_exists:
+        return abort(404)
+
+    # Request is GET
+    if request.method == 'GET':
+        return render_template('products.html', sku = sku, products=results, edit=True, 
+        permissions=permissions, username = username)
+
+    # Request is POST
+    else:
+        product_data = {'name': request.form.get('product-name', ''),
+        'sku': request.form.get('product-sku', ''), 
+        'price': request.form.get('product-price', '')}
+        try:
+            # Handle picture
+            file = request.files.get('picture')
+            try: 
+                file_name = prod.upload_file(file, ALLOWED_EXTENSIONS, sku, 
+                app.config['UPLOADS'])
+
+            except Exception as e: # Early return and flash if there are any issues uploading a picture
+                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
+                    flash("""Error editing the product. The picture added must be a jpeg, 
+                    jpg or png file""", "error")
+                else: # Error unrelated to format
+                    flash("Error editing the product. The picture added could not be uploaded.",
+                     "error")
+                results = prod.get_all_products(conn)
+                return render_template('products.html', sku = sku, edit=True,
+                products=results, permissions=permissions, username = username)
+            
+            # If no issues with picture, try to update product
+            updated_products = prod.update_product(conn, request.form['product-name'], 
+                            request.form['product-price'], session.get('username'), 
+                            file_name, sku, request.form['product-sku'])
+
+            flash("The product was sucessfully updated.", "success")
+
+            # SKU hasn't changed
+            if sku == request.form['product-sku']:
+                return render_template('products.html', sku = sku, 
+                        products=updated_products, edit=True, 
+                        permissions = permissions, username = username)
+            # SKU has changed, we need to redirect
+            else:
+                return redirect(url_for('edit_product', sku = request.form['product-sku']))
+
+        except Exception as e:
+            if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
+                flash("""Error updating the product. The SKU provided already identifies 
+                    another product.""", "error")
+            else:
+                flash("Error updating the product. Try again.", "error")
+            return render_template('products.html', sku = sku, 
+            products=results, edit=True, permissions = permissions, username = username)
+            
+
+@app.route('/products/delete/<sku>', methods=['POST'])
+def delete_product(sku):
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if session.get('logged_in') != None and 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
+        return redirect(url_for('logout'))
+
+    conn = dbi.connect()
+
+    try:
+        prod.delete_product_by_sku(conn, sku)
+        flash("The product was sucessfully deleted.", "success")
+        return redirect(url_for('products'))
+    except Exception as e:
+        flash("Error. The product could not be deleted.", "error")
+        return redirect(url_for('products'))
+
+@app.route('/order_products/', methods = ['GET', 'POST'])
+def order_products():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'product' not in permissions:
+        if session.get('logged_in') != None and 'product' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
+        return redirect(url_for('logout'))
+
+    username = session.get('username', '')
+
+    if request.method == 'GET':
+        return render_template('order.html', permissions = permissions, 
+        username = username)
+    # Request is POST
+    else:
+        conn = dbi.connect()
+        try:
+            date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            orders.add_product_order(conn, request.form['product-sku'], 
+            request.form['product-units'], date, session.get('username'))
+            flash("""The order for product with
+             SKU """+ request.form['product-sku'] +" was sucessfully added.", 
+             "success")
+            return render_template('order.html', permissions = permissions, 
+            username = username )
+        except Exception as e:
+            if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
+                flash("""Error adding the order: the product with the SKU 
+                provided doesn't exist.""","error")
+            else:
+                flash("Error adding the order.", "error")
+            return render_template('order.html', permissions = permissions, 
+            username = username)
+
+@app.route('/transactions/')
+def transactions():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'transaction' not in permissions:
+        if session.get('logged_in') != None and 'transaction' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.",
+             "error")
+        return redirect(url_for('logout'))
+
+    username = session.get('username', '')
+    conn = dbi.connect()
+
+    if request.args:
+        if request.args.get('search'):
+            results = transaction.transaction_search(conn, 
+            request.args.get('by'), 
+            request.args.get('search'))
+        else:
+            results = transaction.transaction_sort(conn, 
+            request.args.get('sort'), 
+            request.args.get('order'))
+    else:
+        results = transaction.get_all_transactions(conn)
+    return render_template('transactions.html', transactions = results, 
+    search = request.args.get('search'), permissions = permissions, 
+    username = username)
+
+@app.route('/manage_access/', methods = ['GET', 'POST'])
+def users():
+    permissions = session.get('permissions', '')
+
+    # Check if user is logged in or if user is trying to access a forbidden route
+    if session.get('logged_in') == None or 'staff' not in permissions:
+        if session.get('logged_in') != None and 'staff' not in permissions:
+            flash("You attemped to access a forbidden page. Please log in again.", 
+            "error")
+        return redirect(url_for('logout'))
+    
+    # Send current user
+    username = session.get('username', '')
+ 
+    if request.method == 'GET':
+        conn = dbi.connect()
+        results = access.get_all_access(conn, username)
+        return render_template('manage-access.html', users = results, 
+        permissions = permissions, username = username)
+
+# AJAX routes
+@app.route('/username_exists/<username>')
+def username_exists(username):
+    conn = dbi.connect()
+    return jsonify(user.username_exists(conn, username))
+
+@app.route('/delete_member/<username>', methods = ['DELETE'])
+def delete_member(username):
+    conn = dbi.connect()
+    try:
+        access.remove_member(conn, username)
+        return jsonify(True)
+    except:
+        message = jsonify(message='Error removing member')
+        return make_response(message, 400)
+
+@app.route('/edit_member/', methods = ['POST'])
+def edit_member():
+    conn = dbi.connect()
+    username = request.form.get('username', '')
+    name = request.form.get('name', '')
+    role = request.form.get('role', '')
+    permission = request.form.get('permission', '')
+    print(permission)
+    # Checking permission format
+    if ',' in permission or permission == 'staff':
+        permission_levels = permission.split(',')
+        known_levels = 'product, transaction, staff, supplier, supplierTerm'
+        if all(element in known_levels for element in permission_levels) == False:
+           message = jsonify(message='Error editing member')
+           return make_response(message, 400) 
+    else:
+        message = jsonify(message='Error editing member')
+        return make_response(message, 400)
+    try:
+        result = access.edit_member(conn, username, name, role, permission)
+        return jsonify(result)
+    except:
+        message = jsonify(message='Error editing member')
+        return make_response(message, 400)
+
+@app.route('/add_member/', methods = ['POST'])
+def add_member():
+    conn = dbi.connect()
+
+    # Data
+    username = request.form.get('username', '')
+    name = request.form.get('name', '')
+    role = request.form.get('role', '')
+    permission = request.form.get('permission', '')
+
+    # Checking permission format
+    if ',' in permission or permission == 'staff':
+        permission_levels = permission.split(',')
+        known_levels = 'product, transaction, staff, supplier, supplierTerm'
+        if all(element in known_levels for element in permission_levels) == False:
+           message = jsonify(message='Error adding member')
+           return make_response(message, 400) 
+    else:
+        message = jsonify(message='Error adding member')
+        return make_response(message, 400)
+    try:
+        result = access.add_member(conn, username, name, role, permission)
+        return jsonify(result)
+    except Exception as e:
+        print(e)
+        if (len(e.args) == 2 and 'Duplicate entry' in e.args[1]):
+            message = jsonify(message="""Error adding member. A member with the 
+            username {} already exists.""".format(username))
+        else:
+            message = jsonify(message='Error adding member')
+        return make_response(message, 400)
+
+@app.errorhandler(404)
+def page_not_found(e):
+    # Determine if user is logged in
+    username = session.get('username') # None if user isn't logged in
+    permissions = session.get('permissions', '')
+
+    return render_template('error.html', username = username, 
+    permissions = permissions), 404
+
+@app.before_first_request
+def init_db():
+    dbi.cache_cnf()
+    db_to_use = 'timeinv_db' 
+    dbi.use(db_to_use)
+    print('will connect to {}'.format(db_to_use))
+
+if __name__ == '__main__':
+    import sys, os
+    if len(sys.argv) > 1:
+        # arg, if any, is the desired port number
+        port = int(sys.argv[1])
+        assert(port>1024)
+    else:
+        port = os.getuid()
+    app.debug = True
+    app.run('0.0.0.0',port)
+# =================================================================================
+#  Helper functions for the manage users page in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+
+
+def get_all_access(conn, username):
+    """
+    Returns all users in the current db except from the user with the 
+    given username
+    Parameters:
+        conn: a connection object
+        username (string): a given username
+    Returns:
+        A list of dictionaries, where each dictionary represents
+        a user
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select * from staff where username <> %s order by username"
+    curs.execute(sql, [username])
+    results = curs.fetchall()
+    return results
+
+
+def remove_member(conn, username):
+    """
+    Removes a member from the staff table given a username
+    Parameters:
+        conn: a connection object
+        username (string): a username from the staff table
+    Returns:
+        None
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "delete from staff where username = %s"
+    curs.execute(sql, [username])
+    conn.commit()
+
+def edit_member(conn, username, name, role, permission):
+    """
+    Remove a member from the staff table given a username
+    Parameters:
+        conn: a connection object
+        username (string): a username from the staff table
+        name (string): the user's name
+        name (role): the user's role
+        name (permission): the user's permission
+    Returns:
+        A dictionary type object with the updated member information
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "update staff set name =  %s, role = %s, permission = %s where username = %s"
+    curs.execute("start transaction")
+    curs.execute(sql, [name, role, permission, username])
+    sql2 = "select * from staff where username = %s"
+    curs.execute(sql2, [username])
+    result = curs.fetchone()
+    curs.execute("commit")
+    conn.commit()
+    return result
+
+
+def add_member(conn, username, name, role, permission):
+    """
+    Add a member from the staff table given a username
+    Parameters:
+        conn: a connection object
+        username (string): a username from the staff table
+        name (string): the user's name
+        name (role): the user's role
+        name (permission): the user's permission
+    Returns:
+        A dictionary type object with the new member information
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "insert into staff (username, name, role, permission) values (%s, %s, %s, %s)"
+    curs.execute("start transaction")
+    curs.execute(sql, [username, name, role, permission])
+    sql2 = "select * from staff where username = %s"
+    curs.execute(sql2, [username])
+    result = curs.fetchone()
+    curs.execute("commit")
+    conn.commit()
+    return result
+# =================================================================================
+#  Helper functions for dashboard page in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+
+
+def inventory_below_threshold(conn, threshold):
+    """
+    Get all products below the given threshold
+
+    Parameters:
+        conn: a connection object
+        threshold (int): the threshold below which a product need to be returned
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of products below the desired threshold
+    """ 
+    curs = dbi.dict_cursor(conn)
+    sql = """select sku, title, max(timestamp) as latesttime, 
+    sum(amount) as inventory, threshold 
+    from transaction inner join product using (sku) 
+    group by sku having inventory < %s
+    """
+    curs.execute(sql, [threshold])
+    results = curs.fetchall()
+    print(results)
+    return results
+
+
+def inventory_by_sku(conn, sku):
+    """
+    Get the requested sku product and its inventory information
+
+    Parameters:
+        conn: a connection object
+        sku (int): the sku to be searched
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of the desired product
+    """ 
+    curs = dbi.dict_cursor(conn)
+    sql = """SELECT sku, title, max(timestamp) as latesttime, 
+    sum(amount) as inventory, threshold 
+    FROM product INNER JOIN transaction 
+    USING (sku) 
+    WHERE sku = %s
+    """
+    curs.execute(sql, [sku])
+    results = curs.fetchall()
+    return results
+
+def filter_all_by_threshold(conn):
+    """
+    Filter through all products and return those under threshold & current inventory
+
+    Parameters:
+        conn: a connection object
+
+    Returns:
+        The sku, title, latest(transaction)time, current inventory, and threshold
+        of the products below their saved threshold
+    """ 
+    curs = dbi.dict_cursor(conn)
+    sql = """SELECT sku, title, max(timestamp) as latesttime, sum(amount) as inventory, threshold 
+    FROM transaction INNER JOIN product USING (sku) GROUP BY sku HAVING inventory < threshold
+    """
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def change_threshold(conn, sku, threshold):
+    """
+    Change the warning threshold of a product in the timeinv_db database
+
+    Parameters:
+        conn: a connection object
+        sku: the sku of product to be changed
+        threshold: the threshold to change to
+
+    Returns:
+        None
+    """ 
+    curs = dbi.dict_cursor(conn)
+    curs.execute("start transaction")
+    sql1 = "select * from product where sku = %s"
+    curs.execute(sql1, [sku])
+    results = curs.fetchall()
+    if len(results) == 0:
+        curs.execute("rollback")
+        raise Exception("No product found with given sku")
+    sql2 = "update product set threshold = %s where sku = %s"
+    curs.execute(sql2, [threshold, sku])
+    curs.execute("commit")
+    conn.commit()
+
+def record_sale(conn, sku, amount, timestamp, last_modified_by):
+    """
+    Record a sale in transaction table in the timeinv_db database
+
+    Parameters:
+        conn: a connection object
+        sku: the sku of product sold
+        amount: the amount of product sold
+        timestamp: the time when sale is recorded
+        last_modified_by: the staff exercising the recording
+
+    Returns:
+        None
+    """ 
+    curs = dbi.dict_cursor(conn)
+    sql1 = """select sum(amount) as inventory 
+    from transaction group by sku having sku = %s
+    """
+    curs.execute("start transaction")
+    curs.execute(sql1, [sku])
+    result = curs.fetchall()
+    if len(result) < 1:
+        curs.execute("rollback")
+        raise Exception("No product found with the SKU given")
+    else:
+        if result[0]['inventory'] < int(amount):
+            curs.execute("rollback")
+            raise Exception("""Not enough availability of the product to perform the sale.
+            There are only """ + str(result[0]['inventory']) + " units available")
+    sql2 = """insert into transaction
+    (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
+    curs.execute(sql2, [timestamp, sku, -int(amount), last_modified_by])
+    curs.execute("commit")
+    conn.commit()
+# =================================================================================
+#  Helper functions for new order page in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+
+def add_product_order(conn, sku, units, timestamp, user):
+    """
+    Adds a product order to the transactions log
+
+    Parameters:
+        conn: a connection object
+        sku (int): sku of product that was ordered
+        units (int): number of units that were ordered
+        timestamp (string): time at which transaction was made
+        user (string): username of staff member that is adding
+        the product order
+
+    Returns:
+        None
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """insert into transaction 
+            (timestamp, tid, sku, amount, last_modified_by)
+            values (%s, NULL, %s, %s, %s)
+        """
+    curs.execute(sql, [timestamp, sku, units, user])
+    conn.commit()
+# =================================================================================
+#  Helper functions for the products page in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+import os
+from werkzeug.utils import secure_filename
+
+
+def get_all_products(conn):
+    """
+    Returns all products in the current db
+    Parameters:
+        conn: a connection object
+    Returns:
+        A list of dictionaries, where each dictionary represents
+        a product
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select * from product order by title"
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+
+def product_sort(conn, by, order):
+    """
+    Returns a list of all products sorted in ascending or descending order
+    Parameters:
+        conn: a connection object
+        by (string): column to sort the products by
+        order (string): asc or desc for ascending or descending order
+    Returns:
+        A list of dictionaries, where each dictionary is a product object, 
+        sorted in asc or desc order for the given column
+    """
+    curs = dbi.dict_cursor(conn)
+    # Checking inputs
+    order_by = {"price", "title", "sku"}
+    direction = {"asc", "desc"}
+    if by not in order_by or order not in direction:
+        raise Exception("Type to sort by in products is not permitted")
+    
+    # We have already vetted the user input, so we can go ahead and use it
+    sql = "select * from product order by " + by +  " " + order
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+
+def product_search(conn, search_type, query):
+    """
+    Returns a list of all products that contain the query string
+    in the given search_type column
+
+    Parameters:
+        conn: a connection object
+        search_type (string): column to compare the query to
+        query (string): string to search in the search_type column
+
+    Returns:
+        A list of dictionaries that contain the query string
+        in the search_type column, where each dictionary is a 
+        product object.
+    """
+    curs = dbi.dict_cursor(conn)
+    order_by = {"price", "title", "sku", "last_modified_by"}
+    if search_type not in order_by:
+        raise Exception("Type to sort by in products is not permitted")
+    
+    # We can use search_type because we have already vetted the input
+    sql = "select * from product where " + search_type + " like %s order by title"
+    curs.execute(sql, ['%' + query + '%'])
+    results = curs.fetchall()
+    return results
+
+
+def products_addedby(conn, staff):
+    """
+    Returns a list of all products that were added by a 
+    specific staff member
+
+    Parameters:
+        conn: a connection object
+        staff (string): the username of the staff 
+
+    Returns:
+        A list of dictionaries, where each dictionary is a 
+        product object that was added by the given staff member.
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select * from product where last_modified_by = %s"
+    curs.execute(sql, [staff])
+    results = curs.fetchall()
+    return results
+
+def product_insert(conn, sku, name, price, staff, image_name):
+    """
+    Inserts a new product into the database
+
+    Parameters:
+        conn: a connection object
+        staff (string): the username of the staff 
+        name (string): the name of the product to be inserted
+        price (float): the price of the product to be inserted
+        staff (string): the name of the staff posting the picture
+        image_name (string): the name of the image uploaded for the product
+
+    Returns:
+        None
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """insert into product (sku, title, price, threshold, 
+            last_modified_by, image_file_name)
+            values (%s, %s, %s, %s, %s, %s)"""
+    # Threshold starts as 0 by default
+    curs.execute(sql, [sku, name, price, 0, 
+    staff, image_name if image_name != '' else None]) 
+    conn.commit()
+
+def sku_exists(conn, sku):
+    """
+    Returns a boolean indicating whether a product
+    with the given sku exists
+
+    Parameters:
+        conn: a connection object
+        sku (int): product sku to be searched
+
+    Returns:
+        A boolean indicating whether a product
+        with the given sku exists (True if it exists,
+        False if it doesn't).
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """select sku from product where sku = %s"""
+    curs.execute(sql, [sku])
+    results = curs.fetchall()
+    return len(results) > 0
+
+
+def update_product(conn, title, price, last_modified_by, image, og_sku, new_sku):
+    """
+    Updates a product in the timeinv_db database with a new sku
+
+    Parameters:
+        conn: a connection object
+        title (string): new product title
+        price (float): new product price
+        last_modified_by (string): username of staff that is
+        updating the product
+        og_sku (int): original product sku
+        new_sku (int): new product sku
+
+    Returns:
+        A list of dictionary-type objects with the updated 
+        product information
+    """
+    curs = dbi.dict_cursor(conn)
+    if image != '': # Image was not added by the user
+        sql = """update product set sku = %s, title = %s, price = %s, 
+                last_modified_by = %s, image_file_name = %s where sku = %s"""
+        curs.execute(sql, [new_sku, title, price, last_modified_by, image, og_sku])
+    
+    else: # Image wasn't updated and we want to update the rest of the information
+        sql = """update product set sku = %s, title = %s, price = %s, 
+                last_modified_by = %s where sku = %s"""
+        curs.execute(sql, [new_sku, title, price, last_modified_by, og_sku])
+    curs.execute("select * from product order by title")
+    results = curs.fetchall()
+    conn.commit()
+    return results
+
+def delete_product_by_sku(conn, sku):
+    """
+    Delets a product from the database with the given sku.
+
+    Parameters:
+        conn: a connection object
+        sku (int): sku of product to be deleted
+
+    Returns:
+        None
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "delete from product where sku = %s"
+    curs.execute(sql, [sku])
+    conn.commit()
+
+def upload_file(file, extension_list, sku, uploads):
+    """
+    Uploads a file to the files folder
+
+    Parameters:
+        file: file to be uploaded
+        extension_list (list of strings): list with the 
+            extensions that a user is allowed to upload
+        sku (int): product sku for which to upload the picture to
+        uploads: directory to which to upload the file
+
+    Returns:
+        A string with the file name that was uploaded
+    """
+    user_filename = file.filename
+    filename = ''
+
+    if user_filename != '': # User uploaded file
+        ext = user_filename.split('.')[-1]
+        if ext not in extension_list:
+            raise Exception("Error inserting the product. File uploaded has incorrect format.")
+        else:
+            filename = secure_filename('{}.{}'.format(sku, ext))
+            pathname = os.path.join(uploads, filename)
+            file.save(pathname)
+
+    return filename
+# =================================================================================
+#  Helper functions for transaction page in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+
+def get_all_transactions(conn):
+    """
+    Returns all transactions in the current db
+    Parameters:
+        conn: a connection object
+    Returns:
+        The tid, sku, title, timestamp, and amount for each transaction
+        in reversed time order
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = """select tid, sku, title, timestamp, amount, transaction.last_modified_by as
+            modified_by from product inner join transaction using (sku) order by timestamp DESC"""
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def transaction_sort(conn, by, order):
+    """
+    Returns a list of all transactions sorted in ascending or descending order
+    Parameters:
+        conn: a connection object
+        by (string): column to sort the transactions by
+        order (string): asc or desc for ascending or descending order
+    Returns:
+        A list of dictionaries, where each dictionary is a transaction object, 
+        sorted in asc or desc order for the given column
+    """
+    curs = dbi.dict_cursor(conn)
+    order_by = {"timestamp", "sku", "title"}
+    by_criterion = {"asc", "desc"}
+
+    # Check inputs
+    if by not in order_by or order not in by_criterion:
+        raise Exception("Order by criterion is not allowed")
+
+    # We can use user input because we have already vetted it
+    sql = """select transaction.tid, transaction.sku, product.title, 
+            transaction.timestamp, transaction.amount, 
+            transaction.last_modified_by as modified_by
+            from product, transaction 
+            where product.sku = transaction.sku 
+            order by """ + by + " " + order
+    curs.execute(sql)
+    results = curs.fetchall()
+    return results
+
+def transaction_search(conn, search_type, query):
+    """
+    Returns a list of all transactions that contain the query string
+    in the given search_type column
+
+    Parameters:
+        conn: a connection object
+        search_type (string): column to compare the query to
+        query (string): string to search in the search_type column
+
+    Returns:
+        A list of dictionaries that contain the query string
+        in the search_type column, where each dictionary is a 
+        transaction object.
+    """
+    curs = dbi.dict_cursor(conn)
+    cols = {"timestamp", "sku", "title", "transaction.last_modified_by"}
+    if search_type not in cols:
+        raise Exception("Search not allowed for the given column")
+    
+    # We can use user input because we have already vetted it
+    sql = """select tid, sku, title, timestamp, amount, 
+            transaction.last_modified_by as modified_by 
+            FROM product INNER JOIN transaction
+             USING (sku) where """ + search_type + """ like %s """
+    curs.execute(sql, ['%' + query + '%'])
+    results = curs.fetchall()
+    return results
+# =================================================================================
+#  Helper functions for login and signup pages in app.py
+#  Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, and Diana Hernandez
+# =================================================================================
+
+import cs304dbi as dbi
+
+def get_password_by_username(conn, username):
+    """
+    Returns the username and the hashed password for a given username.
+
+    Parameters:
+        conn: a connection object
+        username (string): a username 
+
+    Returns:
+        None if the given username doesn't exist, and
+        a dictionary-like object if the username exists
+        with the username and the hashed password stored
+    """
+    curs = dbi.dict_cursor(conn)
+    curs.execute("""SELECT username, hashed
+                    FROM userpass
+                    WHERE username = %s""",
+                     [username])
+    row = curs.fetchone()
+    return row
+
+def insert_new_account(conn, username, hashed):
+    """
+    Inserts a new user into the database using the given username and the hashed password.
+
+    Parameters:
+        conn: a connection object
+        username (string): a username, must have a length less or equal to 10 characters
+        hashed (string): a hashed password with a salt
+
+    Returns:
+        None
+    """
+    curs = dbi.cursor(conn)
+    if len(username) > 10:
+        raise Exception("Could not sign up user. The username must have at most 10 characters.")
+    sql = "select * from staff where username = %s"
+    sql1 = "insert into userpass (username, hashed) values (%s, %s)"
+    curs.execute("start transaction")
+    curs.execute(sql, [username])
+    result = curs.fetchall()
+    if len(result) == 0:
+        curs.execute("rollback")
+        raise Exception("""A user with the given username has not been added to your
+                        organization. Contact your manager to request access.""")
+    curs.execute(sql1, [username, hashed])
+    curs.execute("commit")
+    conn.commit()
+    
+
+
+def username_exists(conn, username):
+    """
+    Checks whether a username exists.
+
+    Parameters:
+        conn: a connection object
+        username (string): a username
+
+    Returns:
+        true if the username exists and false if it doesn't
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select username from userpass where username =  %s"
+    curs.execute(sql, [username])
+    results = curs.fetchall()
+    return len(results) > 0
+
+def get_permissions(conn, username):
+    """
+    Returns permissions for a given user
+
+    Parameters:
+        conn: a connection object
+        username (string): a username
+
+    Returns:
+        A dictionary type object with the permissions for a username
+    """
+    curs = dbi.dict_cursor(conn)
+    sql = "select permission from staff where username =  %s"
+    curs.execute(sql, [username])
+    results = curs.fetchone()
+    return results<!doctype html>
+<html lang="en">
+<!-- TimeInv Base Page. Author: Francisca Moya Jimenez -->
+<head>
+  <meta charset="utf-8">
+  <!-- for mobile-friendly pages -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="TimeInv Team">
+  {% block head_stuff %}
+  <title>TimeInv</title>
+  {% endblock %}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+  <link rel="stylesheet" href="{{url_for('static', filename = 'style.css')}}">
+</head>
+
+<body>
+  {% block nav %}
+  <nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+        aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      {% if username != None %}
+      <div class="collapse navbar-collapse" id="navbarText">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+          </li>
+          {% if 'transaction' in permissions %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+          </li>
+          {% endif %}
+          {% if 'product' in permissions %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{url_for('products')}}">Products</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+          </li>
+          {% endif %}
+          {% if 'staff' in permissions %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+          </li>
+          {% endif %}
+        </ul>
+        {% if username != None %}
+        <div class="d-flex justify-content-end">
+          {% if username != ''%}
+          <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+          {% endif %}
+          <form method="POST" action="{{url_for('logout')}}">
+            <button type="submit" class="btn btn-outline-light">
+              Log out
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+  {% endblock %}
+  <div class="container-fluid p-4">
+
+    {% block main_content %}
+    {% endblock %}
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+    integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+    crossorigin="anonymous"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js"
+    integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js"
+    integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+    crossorigin="anonymous"></script>
+
+  {% block end_scripts %}
+  {% endblock %}
+
+
+</body>
+
+</html><!-- TimeInv Error Page. Author: Francisca Moya Jimenez -->
+{% extends "base.html" %}
+
+{% block main_content %}
+<h1>The page you are looking for was not found.</h1>
+{% if username != None %}
+<p>
+    You can go back to the <a href="{{url_for('index')}}">dashboard</a>
+    or reach out to the TimeInv team for assistance.
+</p>
+{% else %}
+<p>
+    You can go back to the <a href="{{url_for('login')}}">login page.</a>
+</p>
+{% endif %}
+{% endblock %}{% macro show_messages_filtered() %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div>
+    {% for category, msg in messages %}
+    <p class="{{ category }}">{{msg}}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+{% endmacro %}<!-- TimeInv Login Page. Author: Francisca Moya Jimenez -->
+{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+{% block head_stuff %}
+<title>TimeInv | Inventory Management</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column justify-content-center align-items-center">
+        <div class="py-2 w-75 text-center">
+            <h1>TimeInv</h1>
+            <h2>Inventory management made easy</h2>
+        </div>
+        <form method="POST" class="login" action="{{url_for('login')}}">
+            <h3 class="pb-2">Log In</h3>
+            {{ show_messages_filtered() }}
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" 
+                required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <div class="d-flex justify-content-center">
+                <button type="submit" class="btn btn-primary">Log In</button>
+            </div>
+            <div class="d-flex justify-content-center pt-4">
+                <p class="text-center">
+                    Don't have an account? <br/>
+                    <a href="{{url_for('signup')}}">Sign up</a>
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+<!-- TimeInv Main Page. Author: Jiawei Liu -->
+
+{% block main_content %}
+<div>
+    <div class="d-flex align-items-start justify-content-between pb-1">
+        <h1>Check Availability of Products</h1>
+        <form method="GET" action="{{url_for('index')}}">
+            <button type="submit" class="btn btn-primary" name="check-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-arrow-clockwise" viewbox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+                    <path
+                        d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
+                Run availability check using saved thresholds
+            </button>
+        </form>
+    </div>
+    <p>
+        Check and the availability levels of the products in your inventory.<br/>
+        Run availability check to see which products' stocks are below the established
+        thresholds or check availability of products by entering a product SKU or a new threshold.
+    </p>
+    {{ show_messages_filtered() }}
+</div>
+
+<div class="py-2">
+    <!-- The form for filtering inventory: by sku or by threshold -->
+    <form class="main-page-form pb-2" method="GET" action="{{url_for('index')}}">
+        <table>
+            <tr>
+                <td><label for="using">Using</label></td>
+                <td>
+                    <select required id="using" name="using">
+                        <option value="">Choose one</option>
+                        <option value="sku">Product SKU</option>
+                        <option value="threshold">Threshold</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <div class="inline">
+            <label class="inline-elem-r mx-2" for="number" id="num-label"> of (enter number) </label>
+            <input required class="form-control w-75 mr-sm-2" type="number" id="number" name="number"
+                aria-label="Number">
+            <button class="btn btn-primary mx-2 my-2 my-sm-0" type="submit">Get Result</button>
+        </div>
+    </form>
+    <!-- The table showing product info and inventory -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">SKU</th>
+                <th scope="col">Title</th>
+                <th scope="col">Last transaction time</th>
+                <th scope="col">Current Inventory</th>
+                <th scope="col">Threshold</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{result.sku}}</td>
+                <td>{{result.title}}</td>
+                <td>{{result.latesttime if result.latesttime != None 
+                    else 'No transactions have been performed'}}</td>
+                <td>{{result.inventory if result.inventory != None else 0}}</td>
+                <td>{{result.threshold}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="container-fluid">
+    <div class="container pt-5 px-0">
+        <div class="row">
+            <div class="col">
+                <h2 class="h4 pb-1">Add or Modify threshold</h2>
+                <p>
+                    Add or update the amount of a product below which you want 
+                    to trigger an alert in the availability check.
+                </p>
+                <form class="form-horizontal" method="POST" action="{{url_for('index')}}">
+                    <div class="row border border-primary rounded-3 p-3 fit-content">
+                        <div class="col">
+                            <label for="threshold-sku" class="control-label">SKU</label>
+                            <input type="number" class="form-control" id="threshold-sku" name="threshold-sku"
+                                required />
+                            <button type="submit" name="threshold-form" class="btn btn-outline-primary mt-2">
+                                Update threshold
+                            </button>
+                        </div>
+                        <div class="col">
+                            <label for="threshold" class="control-label">New threshold</label>
+                            <input type="number" class="form-control" id="threshold" name="threshold" required />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col">
+                <h2 class="h4 pb-2">Register a sale order</h2>
+                <form method="POST" action="{{url_for('index')}}">
+                    <label for="sale-sku" class="control-label">SKU</label>
+                    <input type="number" class="form-control" id="sale-sku" name="sale-sku" required />
+                    <label for="sale-quantity" class="control-label">Quantity</label>
+                    <input type="number" class="form-control" id="sale-quantity" name="sale-quantity" required />
+                    <button type="submit" name="sale-form" class="btn btn-primary mt-2">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+{% block head_stuff %}
+<title>Manage Users | TimeInv</title>
+{% endblock %}
+
+<!-- TimeInv User Page. Author: Francisca Moya Jimenez -->
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                {% if 'transaction' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+                </li>
+                {% endif %}
+                {% if 'product' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+            </ul>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+                <form method="POST" action="{{url_for('logout')}}">
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
+                </form>
+              </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <div>
+        <h1>Manage Access</h1>
+        <div class="d-flex align-items-start justify-content-between pb-1">
+            <p>
+                Add, remove and edit the access members of your organization to TimeInv
+            </p>
+            <button type="submit" class="btn btn-primary" name="add" data-toggle="modal" data-target="#add">
+                Add a new member
+            </button>
+            <!-- Add Modal -->
+            <div class="modal fade" id="add" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Add Member</h5>
+                            <button type="button" id="close" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <table class="form">
+                                <tr>
+                                    <td>
+                                        <label for="username" class="control-label">Username:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="username" name="person_name"
+                                            required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="name" class="control-label">Name:</label>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="name" name="person_name" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="role" class="control-label">Role:</label>
+                                    </td>
+                                    <td>
+                                        <input class="form-control" id="role" name="role" type="text" required />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label class="control-label">Permission:</label>
+                                    </td>
+                                    <td>
+                                        <fieldset>
+                                            <label for="product">
+                                                <input type="checkbox" id="product" name="product_perm" value="product"
+                                                    class="form-check-label">
+                                                Product<br>
+                                            </label>
+                                            <label for="transaction">
+                                                <input type="checkbox" id="transaction" name="transaction"
+                                                    value="transaction" class="form-check-label">
+                                                Transaction<br>
+                                            </label>
+                                            <label for="staff">
+                                                <input type="checkbox" id="staff" name="staff" value="staff"
+                                                    class="form-check-label">
+                                                Staff<br>
+                                            </label>
+                                        </fieldset>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="container pt-5">
+                                <div class="d-flex justify-content-end">
+                                    <div class="px-2">
+                                        <button type="button" class="btn btn-secondary" id="close-modal"
+                                            data-dismiss="modal">Cancel</button>
+                                    </div>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary" id="submit_new">Submit</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ show_messages_filtered() }}
+    </div>
+    <div>
+        <p id="error" class="error"></p>
+    </div>
+    <table class="table table-striped" id="#myTable">
+        <thead>
+            <tr>
+                <th scope="col">Username</th>
+                <th scope="col">Name</th>
+                <th scope="col">Role</th>
+                <th scope="col">Permissions</th>
+                <th scope="col">Edit member</th>
+                <th scope="col">Delete member</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in users %}
+            <tr id="{{result.username}}">
+                <td id="{{result.username}}_username">{{result.username}}</td>
+                <td id="{{result.username}}_name">{{result.name}}</td>
+                <td id="{{result.username}}_role">{{result.role}}</td>
+                <td id="{{result.username}}_permissions">{{result.permission}}</td>
+                <td>
+                    <button class="btn btn-primary" data-toggle="modal" data-target="#edit_{{result.username}}"
+                        id="edit_button_{{result.username}}">Edit</button>
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="edit_{{result.username}}" tabindex="-1" role="dialog"
+                        aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Member</h5>
+                                    <button type="button" id="close2{{result.username}}" class="close"
+                                        data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <table class="form">
+                                        <tr>
+                                            <td>
+                                                <label for="person_name_{{result.username}}"
+                                                    class="control-label">Name:</label>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control"
+                                                    id="person_name_{{result.username}}" name="person_name"
+                                                    value="{{result.name}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label for="person_role_{{result.username}}"
+                                                    class="control-label">Role:</label>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" id="person_role_{{result.username}}"
+                                                    name="person_role" type="text" value="{{result.role}}" required />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <label
+                                                    class="control-label">Permission:</label>
+                                            </td>
+                                            <td>
+                                                <fieldset>
+                                                    {% if 'product' in result.permission %}
+                                                    <label for="p_checked_{{result.username}}">
+                                                        <input type="checkbox" id="p_checked_{{result.username}}"
+                                                            name="product_perm" value="product" class="form-check-label"
+                                                            checked>Product
+                                                    </label>
+                                                    {% else %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="p_checked_{{result.username}}">
+                                                        <input type="checkbox" id="p_checked_{{result.username}}"
+                                                            name="product_perm" value="product"
+                                                            class="form-check-label">
+                                                        Product<br>
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'transaction' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="t_checked_{{result.username}}">
+                                                        <input type="checkbox" id="t_checked_{{result.username}}"
+                                                            name="transaction_perm" value="transaction" checked
+                                                            class="form-check-label">
+                                                        Transaction<br>
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="t_checked_{{result.username}}">
+                                                        <input type="checkbox" id="t_checked_{{result.username}}"
+                                                            name="transaction_perm" value="transaction"
+                                                            class="form-check-label">
+                                                        Transaction<br>
+                                                    </label>
+                                                    {% endif %}
+                                                    {% if 'staff' in result.permission %}
+                                                    <!-- Same id since only one will be rendered -->
+                                                    <label for="s_checked_{{result.username}}">
+                                                        <input type="checkbox" id="s_checked_{{result.username}}"
+                                                            name="staff_perm" value="staff" checked
+                                                            class="form-check-label">
+                                                        Staff<br>
+                                                    </label>
+                                                    {% else %}
+                                                    <label for="s_checked_{{result.username}}">
+                                                        <input type="checkbox" id="s_checked_{{result.username}}"
+                                                            name="staff_perm" value="staff" class="form-check-label">
+                                                        Staff<br>
+                                                    </label>
+                                                    {% endif %}
+                                                </fieldset>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <div class="container pt-5">
+                                        <div class="d-flex justify-content-end">
+                                            <div class="px-2">
+                                                <button type="button" class="btn btn-secondary"
+                                                    id="close-modal{{result.username}}"
+                                                    data-dismiss="modal">Cancel</button>
+                                            </div>
+                                            <div>
+                                                <button type="submit" class="btn btn-primary"
+                                                    id="submit_edit_{{result.username}}">Save
+                                                    changes</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-danger" data-toggle="modal" data-target="#delete_{{result.username}}">
+                        Delete</button>
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="delete_{{result.username}}" tabindex="-1" role="dialog"
+                        aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Delete</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form method="POST">
+                                    <div class="modal-body">
+                                        <p>
+                                            Are you sure that you want to delete member
+                                            <span class="bolded">
+                                                {{result.username}}
+                                            </span>? Their account will be deleted and they
+                                            will not be able to access it.
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                                            id="close_modal_{{result.username}}">Cancel</button>
+                                        <button type="button" class="btn btn-danger" value="{{result.username}}"
+                                            id="confirm_delete_{{result.username}}">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End of Delete Modal -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!-- End of Delete Modal -->
+</div>
+
+{% endblock %}
+
+{% block end_scripts %}
+<script>
+    // Delete member from org
+
+    var delete_member_url = "{{url_for('delete_member', username = '')}}";
+
+    function delete_member(username) {
+        $.ajax(delete_member_url + username,
+        { method: 'DELETE', success:
+            function (resp) {
+                var value = JSON.stringify(resp);
+                console.log(value);
+                if (value === 'true') {
+                    $('#' + username).remove();
+                } else {
+                    $("#error").text("Error removing member.");
+                }
+            }
+        });
+    }
+
+    // Update member info
+    function update_member(username, name, role, permission) {
+        $.post("{{url_for('edit_member')}}",
+            { 'username': username, 'name': name, 'role': role, 'permission': permission },
+            function (resp) {
+                // Update DOM
+                $("#" + username + "_name").text(resp.name);
+                $("#" + username + "_role").text(resp.role);
+                $("#" + username + "_permissions").text(resp.permission);
+                $("#" + "person_name_" + username).val(resp.name);
+                $("#" + "person_role_" + username).val(resp.role);
+                $("#" + "person_permission_" + username).val(resp.permission);
+
+            }
+        ).fail(() => {
+            $('#error').text("Error editing member. Check the permissions.")
+        });
+    }
+
+    // Remove error message if user clicks on anything
+    $(document).on('click', function (event) {
+        $("#error").text("");
+    })
+
+    // Change checked attribute if checkbox is checked/unchecked by user
+    $("input[type=checkbox]").on('change',
+        (event) => {
+            var id = event.target.id;
+            var checked = $('#' + id).attr('checked');
+            if (checked !== undefined) {
+                document.getElementById(id).removeAttribute('checked');
+            } else {
+                document.getElementById(id).setAttribute('checked', true);
+            }
+        });
+
+
+    // Checks whether at least one checkbox is checked
+    function is_checked(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+
+        for (let i = 0; i < checkbox_length; i++) {
+            let checked = $('#' + checkboxes[i].id).attr('checked');
+            if (checked !== undefined) return true;
+        }
+        return false;
+    }
+
+    // Editing a user: Show an error if no checkboxes are selected 
+    function check_validity(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+        const error_message = !is_checked() ? 'At least one checkbox must be selected.' : '';
+        if (!is_checked){
+        checkboxes[0].setCustomValidity(error_message);
+        checkboxes[0].reportValidity();
+    }
+    }
+
+    // Call delete member if confirm delete is clicked
+    $("button[id*='confirm_delete']").on('click', function (event) {
+        var username = $(this).attr('id').substring(15);
+        $("#delete_" + username).modal('hide');
+        $('.modal-backdrop').remove();
+        delete_member(username);
+    });
+
+    // Builds permissions string in SQL's set format 
+    function build_permissions(username) {
+        const checkboxes = jQuery("[id*='checked_" + username + "']");
+        const checkbox_length = checkboxes.length;
+        const get_value = (val, permission_type) => { return (val === undefined ? '' : permission_type) };
+        return (get_value($('#' + checkboxes[0].id).attr('checked'), 'product,') +
+            get_value($('#' + checkboxes[1].id).attr('checked'), 'transaction,') +
+            get_value($('#' + checkboxes[2].id).attr('checked'), 'staff'));
+    }
+
+    // Submits the edit or calls function to show error if info is invalid
+    $("button[id*='submit_edit']").on('click', function (event) {
+        var username = $(this).attr('id').substring(12);
+        var name = $("#person_name_" + username).val()
+        var role = $("#person_role_" + username).val()
+        var permission = build_permissions(username);
+        var validity = is_checked(username);
+
+        if (permission !== '' && validity && name !== '' && role !== '') {
+            update_member(username, name, role, permission);
+            $("#edit_" + username).modal('hide');
+            $('.modal-backdrop').remove();
+        } 
+        if (!validity) {
+            check_validity(username);
+        }
+        if (name == '') {
+            jQuery("#person_name_" + username)[0].reportValidity();
+        } 
+        if (role == '') {
+            jQuery("#person_role_" + username)[0].reportValidity();
+        }
+    });
+
+    // Adding a new member
+    // Builds permissions string in SQL's set format 
+    function build_new_permissions() {
+        const get_value = (val, permission_type) => { return (val === undefined ? '' : permission_type) };
+        return (get_value($('#product').attr('checked'), 'product,') +
+            get_value($('#transaction').attr('checked'), 'transaction,') +
+            get_value($('#staff').attr('checked'), 'staff'));
+    }
+
+    // Post a new member
+    function add_member(username, name, role, permission) {
+        $.post('/add_member/',
+            { 'username': username, 'name': name, 'role': role, 'permission': permission },
+            function () {
+                // Reload page
+                location.reload();
+            }
+        ).fail((error) => {
+            $('#error').text(error.responseJSON.message);
+        });
+    }
+
+    // Add a new member when submit
+    $("#submit_new").on('click', () => {
+        var username = $("#username").val();
+        var name = $("#name").val();
+        var role = $("#role").val();
+        var permissions = build_new_permissions();
+
+        if (username.length > 10){
+            jQuery("#username")[0].setCustomValidity("Username cannot be longer than 10 characters");
+            jQuery("#username")[0].reportValidity();
+        }
+        else if (permissions !== '' && !username.includes(' ') &&
+            name !== '' && role !== '') {
+            add_member(username, name, role, permissions);
+            location.reload();
+            $("#add").modal('hide');
+            $('.modal-backdrop').remove();
+        } else if (permissions == '') {
+            jQuery('#product')[0].setCustomValidity('At least one checkbox must be selected.');
+            jQuery('#product')[0].reportValidity();
+        } else {
+            // Show validation errors
+            if (username.includes('')) {
+                jQuery('#username')[0].setCustomValidity('Username cannot have whitespaces');
+                jQuery('#username')[0].reportValidity();
+            } else if (name == '') {
+                jQuery('#name')[0].reportValidity();
+            } else {
+                jQuery('#role')[0].reportValidity();
+            }
+        }
+
+    });
+
+    // Empty add new member modal when closed
+    $('#add').on('hidden.bs.modal', () => {
+        $("#username").val('');
+        $("#name").val('');
+        $("#role").val('');
+        document.getElementById('product').removeAttribute('checked');
+        document.getElementById('transaction').removeAttribute('checked');
+        document.getElementById('staff').removeAttribute('checked');
+    });
+</script>
+{% endblock %}{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+<!-- TimeInv Order Page. Author: Diana Hernandez -->
+
+{% block head_stuff %}
+<title>Order Products | TimeInv</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                {% if 'transaction' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('order_products')}}">Product Orders</a>
+                </li>
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+                <form method="POST" action="{{url_for('logout')}}">
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
+                </form>
+              </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <div>
+        <h1>Register A Product Order</h1>
+        <p>
+            Register product order information into the system to update product availability
+            once your orders have been processed.
+        </p>
+        {{ show_messages_filtered() }}
+    </div>
+    <form class="pt-2 w-75" method="POST" action="{{url_for('order_products')}}">
+        <div class="form-group pb-4">
+            <label class="control-label" for="product-sku">SKU</label>
+            <input type="number" class="form-control" id="product-sku" name="product-sku" aria-describedby="product-sku"
+                placeholder="SKU number" required/>
+        </div>
+        <div class="form-group pb-4">
+            <label class="control-label" for="product-units">Number of units ordered</label>
+            <input type="number" class="form-control" id="product-units" name="product-units" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Register order</button>
+    </form>
+</div>
+
+{% endblock %}{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+<!-- TimeInv Main Page. Author: Francisca Moya Jimenez -->
+
+{% block head_stuff %}
+<title>Products | TimeInv</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                {% if 'transaction' in permissions%}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+                </li>
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+                <form method="POST" action="{{url_for('logout')}}">
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
+                </form>
+              </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <!-- Button trigger modal -->
+    <div class="d-flex align-items-start justify-content-between">
+        <h1>Products</h1>
+        <a href="{{url_for('products')}}" class="btn btn-primary" data-toggle="modal" data-target="#newproduct">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg"
+                viewbox="0 0 16 16">
+                <path fill-rule="evenodd"
+                    d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z" />
+            </svg>
+            Add a product
+        </a>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="newproduct" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add a product</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form class="modal-form" method="POST" action="{{url_for('products')}}"
+                    enctype="multipart/form-data">
+                        {{ show_messages_filtered() }}
+                        <table class="form">
+                            <tr>
+                                <td>
+                                    <label for="prod-name" class="control-label">Name:</label>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control" id="prod-name" name="product-name"
+                                        value="{{product_data.name if product_data else ''}}" required />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label for="prod-sku" class="control-label">SKU:</label>
+                                </td>
+                                <td>
+                                    <input class="form-control" id="prod-sku" name="product-sku" type="number"
+                                        value="{{product_data.sku if product_data else ''}}" required />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label for="prod-price" class="control-label">Price:</label>
+                                </td>
+                                <td>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input class="form-control" type="number" step="0.01" id="prod-price"
+                                            name="product-price" value="{{product_data.price if product_data else ''}}"
+                                            required />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label for="picture" class="control-label">Picture:</label>
+                                </td>
+                                <td>
+                                    <input type="file" id="picture" name="picture">
+                                </td>
+                            </tr>
+                            
+                        </table>
+                        <div class="container pt-5">
+                            <div class="d-flex justify-content-end">
+                                <div class="px-2">
+                                    <button type="button" class="btn btn-secondary" id="close-modal-new-prod"
+                                        data-dismiss="modal">Close</button>
+                                </div>
+                                <div>
+                                    <button type="submit" class="btn btn-primary">Add product</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p>
+        View information for all products that you have added to your business.
+        Search for products or sort the products on display.
+    </p>
+    {% if search %}
+    <a href="{{url_for('products')}}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left"
+            viewbox="0 0 16 16">
+            <path fill-rule="evenodd"
+                d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+        </svg>
+        Back to all products
+    </a>
+    {% endif %}
+
+    <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('products')}}">
+        <div class="inline">
+            <label class="inline-elem-r" for="search" id="search-label">Search</label>
+            <input class="form-control mr-sm-2" type="text" id="search" name="search" aria-label="Search">
+        </div>
+        <table>
+            <tr>
+                <td><label for="by">By </label></td>
+                <td>
+                    <select required id="by" name="by">
+                        <option value="">Choose one</option>
+                        <option value="title">Title</option>
+                        <option value="last_modified_by">Last modified by</option>
+                        <option value="sku">SKU</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+        </span>
+    </form>
+    <form class="sorting" method="GET" action="{{url_for('products')}}">
+        <table>
+            <tr>
+                <td><label for="sort">Sort by</label></td>
+                <td>
+                    <select required id="sort" name="sort">
+                        <option value="">Choose one</option>
+                        <option value="price">Price</option>
+                        <option value="title">Title</option>
+                        <option value="sku">SKU</option>
+                    </select>
+                </td>
+                <td class="inline-elem"><label for="order">Order </label></td>
+                <td>
+                    <select required id="order" name="order">
+                        <option value="">Choose one</option>
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0"
+                type="submit">Sort</button></span>
+    </form>
+</div>
+
+<div class="row">
+    {% for product in products %}
+    <div class="col-sm-3">
+        <div class="pb-4">
+            <div class="card">
+                <div class="card-body">
+                    <img class="card-img-top"
+                        src="{{url_for('static', filename = 'uploads/' + product.image_file_name ) 
+                        if product.image_file_name !=  None else 'https://via.placeholder.com/266x140'}}"
+                        alt="Product SKU:{{product.sku}} image" width="266" height="200">
+                    <h5 class="card-title pt-4">{{product.title}}</h5>
+                    <div class="card-text">
+                        <p>
+                            SKU: {{product.sku}} <br>
+                            Price: ${{product.price}}
+                        </p>
+                    </div>
+                    <!-- Button trigger modal -->
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#sku{{product.sku}}">
+                        Edit
+                    </button>
+                    <button type="button" class="btn btn-danger" data-toggle="modal"
+                        data-target="#delete{{product.sku}}">
+                        Delete
+                    </button>
+
+
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="sku{{product.sku}}" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Product</h5>
+                                    <button type="button" id="close{{product.sku}}" class="close" data-dismiss="modal"
+                                        aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form class="modal-form" method="POST"
+                                        action="{{url_for('edit_product', sku = product.sku)}}"
+                                        enctype="multipart/form-data">
+                                        {{ show_messages_filtered() }}
+                                        <table class="form">
+                                            <tr>
+                                                <td>
+                                                    <label for="product-name{{product.sku}}"
+                                                        class="control-label">Name:</label>
+                                                </td>
+                                                <td>
+                                                    <input type="text" class="form-control"
+                                                        id="product-name{{product.sku}}" name="product-name"
+                                                        value="{{product.title}}" required />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <label for="product-sku{{product.sku}}"
+                                                        class="control-label">SKU:</label>
+                                                </td>
+                                                <td>
+                                                    <input class="form-control" id="product-sku{{product.sku}}"
+                                                        name="product-sku" type="number" value="{{product.sku}}"
+                                                        required />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <label for="product-price{{product.sku}}"
+                                                        class="control-label">Price:</label>
+                                                </td>
+                                                <td>
+                                                    <div class="input-group">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text">$</span>
+                                                        </div>
+                                                        <input class="form-control" type="number" step="0.01"
+                                                            id="product-price{{product.sku}}" name="product-price"
+                                                            value="{{product.price}}" required />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <label for="product-pic{{product.sku}}" class="control-label">Picture:</label>
+                                                </td>
+                                                <td>
+                                                    <input type="file" id="product-pic{{product.sku}}" name="picture">
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <div class="container pt-5">
+                                            <div class="d-flex justify-content-end">
+                                                <div class="px-2">
+                                                    <button type="button" class="btn btn-secondary" id="close-modal{{product.sku}}"
+                                                        data-dismiss="modal">Close</button>
+                                                </div>
+                                                <div>
+                                                    <button type="submit" class="btn btn-primary">Save
+                                                        changes</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="delete{{product.sku}}" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="delete2{{product.sku}}">Delete Product</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form method="POST" action="{{url_for('delete_product', sku = product.sku)}}">
+                                    <div class="modal-body">
+                                        <p>
+                                            Are you sure that you want to delete product
+                                            <span class="bolded">
+                                                {{product.title}} (SKU: {{product.sku}})
+                                            </span>?
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End of Delete Modal -->
+                </div>
+                <div class="card-footer text-muted">
+                    Last modified by: {{product.last_modified_by}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% endblock %}
+
+{% block end_scripts %}
+<script>
+    if ("{{product_data}}" !== '') {
+        $(document).ready(function () {
+            $("#newproduct").modal('show');
+        });
+    }
+
+    if ("{{edit}}" !== '') {
+        $(document).ready(function () {
+            $("#sku{{sku}}").modal('show');
+        });
+        $(document).on('click', '#close-modal', function (event) {
+            event.preventDefault();
+            window.location.assign("{{url_for('products')}}");
+            $("#sku{{sku}}").modal('hide');
+        });
+
+        $(document).on('click', '#close', function (event) {
+            event.preventDefault();
+            window.location.assign("{{url_for('products')}}");
+            $("#sku{{sku}}").modal('hide');
+        });
+    }
+
+</script>
+{% endblock %}<!-- TimeInv Login Page. Author: Francisca Moya Jimenez -->
+{% extends "base.html" %}
+{% from "flashing-macro-filtered.html" import show_messages_filtered %}
+
+{% block head_stuff %}
+<title>TimeInv | Inventory Management</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column justify-content-center align-items-center">
+        <div class="py-2 w-75 text-center">
+            <h1>TimeInv</h1>
+            <h2>Inventory management made easy</h2>
+        </div>
+        <form method="POST" class="login" action="{{url_for('signup')}}">
+            <h3 class="pb-2">Sign Up</h3>
+            {{ show_messages_filtered() }}
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" aria-describedby="username"
+                    required>
+                <p id="error" class="error"></p>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <div class="d-flex justify-content-center">
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+            </div>
+            <div class="d-flex justify-content-center pt-4">
+                <p class="text-center">
+                    Already have an account? <br />
+                    <a href="{{url_for('login')}}">Log in</a>
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_scripts %}
+<script>
+    var username_check_url = "{{url_for('username_exists', username = '')}}";
+
+    function username_check(username) {
+        if (username !== '') {
+            $.ajax(username_check_url + username,
+                {
+                    method: 'GET', success:
+                        (resp) => {
+                            var value = JSON.stringify(resp);
+                            if (value === 'true') {
+                                $("#error").text("This username is already taken.");
+                            }
+                        }
+                });
+        }
+    }
+
+    $("#username").on('input', () => {
+        $("#error").text("");
+        var value = $("#username").val();
+        username_check(value);
+    })
+</script>
+{% endblock %}{% extends "base.html" %}
+<!-- TimeInv Transactions Page. Author: Candice Ye -->
+
+{% block head_stuff %}
+<title>Transactions | TimeInv</title>
+{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{url_for('transactions')}}">Transactions</a>
+                </li>
+                {% if 'product' in permissions %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('products')}}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+                </li>
+                {% endif %}
+                {% if 'staff' in permissions %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
+                <form method="POST" action="{{url_for('logout')}}">
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
+                </form>
+              </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block main_content %}
+<div>
+    <h1>Transactions</h1>
+    <p>
+        View information for all sales and orders that have been performed in your business.
+        Search for transactions by name or sort transactions on display.
+    </p>
+    {% if search %}
+    <a href="{{url_for('transactions')}}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left"
+            viewbox="0 0 16 16">
+            <path fill-rule="evenodd"
+                d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+        </svg>
+        Back to all transactions
+    </a>
+    {% endif %}
+    <form class="main-page-form pb-2 pt-3" method="GET" action="{{url_for('transactions')}}">
+        <div class="inline">
+            <label class="inline-elem-r" for="search" id="search-label">Search</label>
+            <input class="form-control mr-sm-2" type="text" id="search" name="search" aria-label="Search">
+        </div>
+        <table>
+            <tr>
+                <td><label for="by">By </label></td>
+                <td>
+                    <select required id="by" name="by">
+                        <option value="">Choose one</option>
+                        <option value="title">Name</option>
+                        <option value="sku">SKU</option>
+                        <option value="transaction.last_modified_by">Performed by</option>
+                        <option value="timestamp">Timestamp</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem"><button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Search</button>
+        </span>
+    </form>
+    <form class="sorting" method="GET" action="{{url_for('transactions')}}">
+        <table>
+            <tr>
+                <td><label for="sort">Sort by</label></td>
+                <td>
+                    <select required id="sort" name="sort">
+                        <option value="">Choose one</option>
+                        <option value="timestamp">Timestamp</option>
+                        <option value="sku">SKU</option>
+                    </select>
+                </td>
+                <td class="inline-elem"><label for="order">Order </label></td>
+                <td>
+                    <select required id="order" name="order">
+                        <option value="">Choose one</option>
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <span class="inline-elem">
+            <button class="btn btn-outline-primary my-2 my-sm-0" type="submit">Sort</button>
+        </span>
+    </form>
+</div>
+
+<table class="table table-striped">
+    <thead>
+      <tr>
+        <th scope="col">Transaction ID</th>
+        <th scope="col">SKU</th>
+        <th scope="col">Product name</th>
+        <th scope="col">Transaction time</th>
+        <th scope="col">Performed by</th>
+        <th scope="col">Changes in amount</th>
+      </tr>
+    </thead>
+    <tbody>
+        {% for results in transactions %}
+        <tr>
+            <td>{{results.tid}}</td>
+            <td>{{results.sku}}</td>
+            <td>{{results.title}}</td>
+            <td>{{results.timestamp.strftime('%m-%d-%Y %I:%M %p')}}</td>
+            <td>{{results.modified_by}}</td>
+            {% if results.amount > 0 %}
+            <td class="text-success">{{results.amount}} (order)</td>
+            {% else %}
+            <td class="text-danger">{{results.amount}} (sale)</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+  </table>
+
+
+{% endblock %}/* CSS for TimeInv app. Authors: Francisca Moya Jimenez, Jiawei Liu, Candice Ye, Diana Hernandez */
+
+HTML {
+    --color-hilite: #b50000;  /* was red, but this avoids WAVE contrast errors */ 
+    --color-focus: #56B929;
+    font-family: var(--font-family)
+}
+
+/* Flashed messages with categories */
+.success {
+    color: var(--color-focus);
+    font-style: italic;
+}
+
+.error {
+    color: var(--color-hilite);
+    font-style: italic;
+
+}
+
+
+h1 {
+    font-size: 200%;
+    color: var(--color-header);
+}
+
+h2 {
+    font-size: x-large;
+}
+
+h3 {
+    font-size: x-large;
+}
+
+.inline {
+    display: flex;
+    width: 100%;
+}
+
+.inline-elem {
+    padding-left: 1em;
+}
+
+.inline-elem-r {
+    padding-right: 1em;
+    align-items: center;
+    padding-top: 0.3em;
+}
+
+.main-page-form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%
+
+}
+
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%
+}
+
+select {
+    border-style: solid;
+    border-color: #d5dbe0;
+    border-radius: 0.3em;
+    height: 40px;
+    padding: 0.5em;
+    color: #676767;
+}
+
+td label {
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+.sorting {
+    padding-bottom: 1em; 
+    display: flex;
+}
+
+.sorting label{
+    padding-left: 0;
+}
+
+.login {
+    width: 100%;
+}
+
+.main-centered {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.control-label:after { 
+    color: #d00;
+    content: "*";
+    padding-left: 0.5em;
+}
+
+.bolded {
+    font-weight: bold;
+}
+
+.fit-content {
+    width: fit-content;
+}
+
+.form {
+    border-collapse: separate;
+    border-spacing: 0 1em;
+}
+
+.login {
+    width: 35%;
+    padding-top: 3em;
+}
+
+@media only screen and (max-width: 600px) {
+    .main-page-form {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .inline-elem, td {
+        padding-top: 1em;
+    }
+}
+

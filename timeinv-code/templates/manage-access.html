@@ -459,8 +459,9 @@
     function add_member(username, name, role, permission) {
         $.post('/add_member/',
             { 'username': username, 'name': name, 'role': role, 'permission': permission },
-            function () {
+            function (resp) {
                 // Reload page
+                console.log(resp);
                 location.reload();
             }
         ).fail((error) => {
