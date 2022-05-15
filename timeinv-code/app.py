@@ -174,7 +174,7 @@ def products():
     conn = dbi.connect()
     if request.method == 'GET':
         if request.args:
-            if request.args.get('search'):
+            if request.args.get('search') or request.args.get('search') == '':
                 results = prod.product_search(conn, request.args.get('by'), 
                 request.args.get('search'))
             else:
@@ -402,7 +402,8 @@ def transactions():
 
     conn = dbi.connect()
     if request.args:
-        if request.args.get('search'):
+        search_query = request.args.get('search', '')
+        if request.args.get('search') or request.args.get('search') == '':
             results = transaction.transaction_search(conn, 
             request.args.get('by'), 
             request.args.get('search'))

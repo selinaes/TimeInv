@@ -69,6 +69,7 @@ def transaction_search(conn, search_type, query):
     """
     curs = dbi.dict_cursor(conn)
     cols = {"timestamp", "sku", "title"}
+    print('called')
     if search_type not in cols:
         raise exceptions.TransactionSearchInvalid()
     
