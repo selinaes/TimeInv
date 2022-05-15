@@ -4,9 +4,9 @@
 # =================================================================================
 
 import cs304dbi as dbi
-from flask import session, flash, redirect, url_for
+from flask import session
 
-def check_permissions(permission):
+def has_permissions(permission):
     """
    Checks whether a user has the appropriate permission levels to access
    a page. It redirects the user if they don't have the necessary permissions.
@@ -15,22 +15,22 @@ def check_permissions(permission):
         permission (string): a string indicating the permission level required
 
     Returns:
-        None
+        A boolean, False if permissions aren't sufficient or True if they are
     """
     permissions = session.get('permissions', '')
 
     # Check if user is logged in or if user is trying to access a forbidden route
     if session.get('logged_in') == None or 'product' not in permissions:
-        print('not')
-        if permissions not in permissions:
-            flash("You attempted to access a forbidden page. Please log in again.", "error")
-        return redirect(url_for('logout'))
+        return False
+
+    return True
 
 
 def get_all_access(conn, username):
     """
-    Returns all users in the current db except from the user with the 
-    given username
+    Returns the access for all users in the current db except from the user
+    who is currently logged in (username given) 
+    
     Parameters:
         conn: a connection object
         username (string): a given username
@@ -73,6 +73,8 @@ def edit_member(conn, username, name, role, permission):
         A dictionary type object with the updated member information
     """
     curs = dbi.dict_cursor(conn)
+    # Add transaction to show change made by user on select rather than update from another 
+    # user who is editing the same staff member at the same time
     sql = "update staff set name =  %s, role = %s, permission = %s where username = %s"
     curs.execute("start transaction")
     curs.execute(sql, [name, role, permission, username])
@@ -97,6 +99,9 @@ def add_member(conn, username, name, role, permission):
         A dictionary type object with the new member information
     """
     curs = dbi.dict_cursor(conn)
+    # Add transaction to show information of staff added by user 
+    # in the unlikely case that another user edits or deletes a user
+    # right before the select statement
     sql = "insert into staff (username, name, role, permission) values (%s, %s, %s, %s)"
     curs.execute("start transaction")
     curs.execute(sql, [username, name, role, permission])

@@ -1,10 +1,62 @@
 <!-- TimeInv Error Page. Author: Francisca Moya Jimenez -->
 {% extends "base.html" %}
 
+{% block nav %}
+<nav class="navbar navbar-expand-md sticky-top navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{url_for('index')}}">TimeInv</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+      aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    {% if username != None %}
+    <div class="collapse navbar-collapse" id="navbarText">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="{{url_for('index')}}">Dashboard</a>
+        </li>
+        {% if 'transaction' in permissions %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('transactions')}}">Transactions</a>
+        </li>
+        {% endif %}
+        {% if 'product' in permissions %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('products')}}">Products</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('order_products')}}">Product Orders</a>
+        </li>
+        {% endif %}
+        {% if 'staff' in permissions %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('users')}}">Manage Access</a>
+        </li>
+        {% endif %}
+      </ul>
+      <div>
+        <form method="POST" action="{{url_for('logout')}}">
+          <button type="submit" class="btn btn-outline-light">
+            Log out
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+{% endblock %}
+
 {% block main_content %}
 <h1>The page you are looking for was not found.</h1>
+{% if username != None %}
 <p>
-    You can go back to <a href="{{url_for('index')}}">home</a>
+    You can go back to the <a href="{{url_for('index')}}">dashboard</a>
     or reach out to the TimeInv team for assistance.
 </p>
+{% else %}
+<p>
+    You can go back to the <a href="{{url_for('login')}}">login page.</a>
+</p>
+{% endif %}
 {% endblock %}

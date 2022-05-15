@@ -85,6 +85,9 @@ def change_threshold(conn, sku, threshold):
         None
     """ 
     curs = dbi.dict_cursor(conn)
+    # Add transaction to be able to update product despite of other
+    # updates/deletions made to the product after select from another
+    # thread. Rollback transaction if product doesn't exist.
     curs.execute("start transaction")
     sql1 = "select * from product where sku = %s"
     curs.execute(sql1, [sku])
@@ -115,14 +118,20 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
     sql1 = """select sum(amount) as inventory 
     from transaction group by sku having sku = %s
     """
+    # Add transaction to show transaction inventory despite of other 
+    # transactions happening in other threads.
     curs.execute("start transaction")
     curs.execute(sql1, [sku])
     result = curs.fetchall()
     if len(result) < 1:
+        # Rollback (end) transaction if no product is found -- raise an error
+        # that is picked up by the page and shown to the user
         curs.execute("rollback")
         raise Exception("No product found with the SKU given")
     else:
         if result[0]['inventory'] < int(amount):
+        # Rollback (end) transaction if no product availability -- raise an error
+        # that is picked up by the page and shown to the user
             curs.execute("rollback")
             raise Exception("""Not enough availability of the product to perform the sale.
             There are only """ + str(result[0]['inventory']) + " units available")
