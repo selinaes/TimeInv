@@ -7,7 +7,7 @@ from flask import (Flask, render_template, make_response, url_for, request,
                    redirect, flash, session, jsonify, abort)
 app = Flask(__name__)
 
-import sys, os, imghdr, random, datetime
+import sys, os, random, datetime
 import user, dashboard, products as prod, transaction, orders, access
 import cs304dbi as dbi
 import bcrypt
@@ -138,7 +138,7 @@ def index():
                 dashboard.record_sale(conn, sale_data['sku'],
                  sale_data['amount'], datetime.datetime.now(), 
                  session.get('username'))
-                flash("Sale was sucessfully registered", "success")
+                flash("Sale was successfully registered", "success")
         except Exception as e:
             print(e.args)
             if len(e.args) == 1 and 'availability' in e.args[0]:
@@ -153,13 +153,10 @@ def index():
 
 @app.route('/products/', methods = ['GET', 'POST'])
 def products():
-    permissions = session.get('permissions', '')
 
-    # Check if user is logged in or if user is trying to access a forbidden route
-    if session.get('logged_in') == None or 'product' not in permissions:
-        if 'product' not in permissions:
-            flash("You attemped to access a forbidden page. Please log in again.", "error")
-        return redirect(url_for('logout'))
+    # Check permission levels
+    permissions = session.get('permissions', '')
+    access.check_permissions('product')
 
     conn = dbi.connect()
     if request.method == 'GET':
