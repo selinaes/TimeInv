@@ -4,6 +4,7 @@
 # =================================================================================
 
 import cs304dbi as dbi
+import exceptions
 
 def get_all_transactions(conn):
     """
@@ -15,7 +16,7 @@ def get_all_transactions(conn):
         in reversed time order
     """
     curs = dbi.dict_cursor(conn)
-    sql = """select tid, sku, title, timestamp, amount 
+    sql = """select tid, sku, title, timestamp, amount, transaction.last_modified_by as responsible
             from product inner join transaction using (sku) order by timestamp DESC"""
     curs.execute(sql)
     results = curs.fetchall()
@@ -38,11 +39,12 @@ def transaction_sort(conn, by, order):
 
     # Check inputs
     if by not in order_by or order not in by_criterion:
-        raise Exception("Order by criterion is not allowed")
+        raise exceptions.TransactionSortInvalid()
 
     # We can use user input because we have already vetted it
     sql = """select transaction.tid, transaction.sku, product.title, 
-            transaction.timestamp, transaction.amount 
+            transaction.timestamp, transaction.amount, transaction.last_modified_by
+            as responsible
             from product, transaction 
             where product.sku = transaction.sku 
             order by """ + by + " " + order
@@ -68,10 +70,11 @@ def transaction_search(conn, search_type, query):
     curs = dbi.dict_cursor(conn)
     cols = {"timestamp", "sku", "title"}
     if search_type not in cols:
-        raise Exception("Search not allowed for the given column")
+        raise exceptions.TransactionSearchInvalid()
     
     # We can use user input because we have already vetted it
-    sql = """select tid, sku, title, timestamp, amount 
+    sql = """select tid, sku, title, timestamp, amount, transaction.last_modified_by
+            as responsible
             FROM product INNER JOIN transaction USING (sku) 
             where """ + search_type + """ like %s """
     curs.execute(sql, ['%' + query + '%'])

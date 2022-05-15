@@ -4,6 +4,7 @@
 # =================================================================================
 
 import cs304dbi as dbi
+import exceptions
 
 
 def inventory_below_threshold(conn, threshold):
@@ -94,7 +95,7 @@ def change_threshold(conn, sku, threshold):
     results = curs.fetchall()
     if len(results) == 0:
         curs.execute("rollback")
-        raise Exception("No product found with given sku")
+        raise exceptions.ProductNonExistent()
     sql2 = "update product set threshold = %s where sku = %s"
     curs.execute(sql2, [threshold, sku])
     curs.execute("commit")
@@ -127,14 +128,13 @@ def record_sale(conn, sku, amount, timestamp, last_modified_by):
         # Rollback (end) transaction if no product is found -- raise an error
         # that is picked up by the page and shown to the user
         curs.execute("rollback")
-        raise Exception("No product found with the SKU given")
+        raise exceptions.ProductNonExistent()
     else:
         if result[0]['inventory'] < int(amount):
         # Rollback (end) transaction if no product availability -- raise an error
         # that is picked up by the page and shown to the user
             curs.execute("rollback")
-            raise Exception("""Not enough availability of the product to perform the sale.
-            There are only """ + str(result[0]['inventory']) + " units available")
+            raise exceptions.LowInventory(result[0]['inventory'])
     sql2 = """insert into transaction
     (timestamp, sku, amount, last_modified_by) values (%s, %s, %s, %s)"""
     curs.execute(sql2, [timestamp, sku, -int(amount), last_modified_by])

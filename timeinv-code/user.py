@@ -6,6 +6,7 @@
 import cs304dbi as dbi
 import user
 from flask import session
+import exceptions
 
 def set_login_info(conn, username):
     """
@@ -58,7 +59,7 @@ def insert_new_account(conn, username, hashed):
     """
     curs = dbi.cursor(conn)
     if len(username) > 10:
-        raise Exception("Could not sign up user. The username must have at most 10 characters.")
+        raise exceptions.UsernameFormatError()
     sql = "select * from staff where username = %s"
     sql1 = "insert into userpass (username, hashed) values (%s, %s)"
     # Start transaction to make sure that user is able to complete
@@ -70,8 +71,7 @@ def insert_new_account(conn, username, hashed):
         # Rollback transaction if username does not exist. Raise an error that 
         # is catched on the page and shown to the user
         curs.execute("rollback")
-        raise Exception("""A user with the given username has not been added to your
-                        organization. Contact your manager to request access.""")
+        raise exceptions.UsernameNonExistent()
     curs.execute(sql1, [username, hashed])
     curs.execute("commit")
     conn.commit()

@@ -8,8 +8,9 @@ from flask import (Flask, render_template, make_response, url_for, request,
 app = Flask(__name__)
 
 import sys, os, random, datetime
-import user, dashboard, products as prod, transaction, orders, access
+import user, dashboard, products as prod, transaction, orders, access, exceptions
 import cs304dbi as dbi
+from pymysql import IntegrityError, MySQLError
 import bcrypt
 
 # replace that with a random key
@@ -77,14 +78,20 @@ def signup():
             user.set_login_info(conn, username)
             return redirect(url_for('index'))
 
+        # Username is longer than 10 characters or user doesn't exist
+        # in the organization
+        except (exceptions.UsernameFormatError, exceptions.UsernameNonExistent) as e:
+            flash(e.message, 'error')
+            return render_template('signup.html')
+
+        # Username is taken
+        except IntegrityError:
+            flash("The username you chose is taken. Please choose another username.", "error")
+            return render_template('signup.html')
+
+        # Any other error that might arise
         except Exception as e:
-            if len(e.args) == 1 and ('characters' in e.args[0] 
-            or 'organization' in e.args[0]):
-                flash(e.args[0], "error")
-            elif len(e.args) == 2 and "key 'PRIMARY'" in e.args[1]:
-                flash("The username you chose is taken. Please choose another username.", "error")
-            else:
-                flash("There was an error creating the account. Please try again.", "error")
+            flash("There was an error creating the account. Please try again.", "error")
             return render_template('signup.html')
 
 
@@ -98,6 +105,7 @@ def logout():
 @app.route('/', methods = ['GET','POST'])
 def index():
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
 
     # Check if user is logged in
     if session.get('logged_in') == None:
@@ -121,7 +129,7 @@ def index():
                 results = dashboard.inventory_below_threshold(conn,request.args.get('number'))
                 if len(results) == 0:
                     flash("No products found for the given threshold", "error")
-        return render_template('main.html', results = results, permissions = permissions)
+        return render_template('main.html', results = results, permissions = permissions, username = username)
     # 'POST' is for 1. Modify Threshold 2. recording new sales
     else:
         try:
@@ -140,23 +148,25 @@ def index():
                  sale_data['amount'], datetime.datetime.now(), 
                  session.get('username'))
                 flash("Sale was successfully registered", "success")
-        except Exception as e:
-            print(e.args)
-            if len(e.args) == 1 and 'availability' in e.args[0]:
-                flash(e.args[0], "error")
-            elif len(e.args) == 1 and 'No product found' in e.args[0]:
-                flash(e.args[0], "error")
-            elif len(e.args) == 1 and 'given sku' in e.args[0]:
-                flash(e.args[0], "error")
-            else:
-                flash("Error processing form. Try again.", "error")
-        return render_template('main.html', permissions = permissions)
+
+        # Catch errors:
+        # Product with the given SKU doesn't exist 
+        # If product availability is low when performing a sale
+        except (exceptions.ProductNonExistent, exceptions.LowInventory) as e:
+            flash(e.message, 'error')
+
+        # Catch any other unexpected exceptions
+        except Exception:
+            flash("Error processing form. Try again.", "error")
+
+        return render_template('main.html', permissions = permissions, username = username)
 
 @app.route('/products/', methods = ['GET', 'POST'])
 def products():
-
     # Check permission levels
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
+
     if not access.has_permissions('product'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
         return redirect(url_for('login'))
@@ -176,7 +186,7 @@ def products():
         products = results, 
         search = request.args.get('search'),
         open_new_product = 'False', 
-        permissions = permissions)
+        permissions = permissions, username = username)
 
     # Request is POST. Add a new product.
     else:
@@ -191,14 +201,20 @@ def products():
                 file_name = prod.upload_file(file, ALLOWED_EXTENSIONS, product_data['sku'], 
                 app.config['UPLOADS'])
 
-            except Exception as e: # Early return and flash if there are any issues uploading a picture
-                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
-                    flash(e.args[0], "error")
-                else: # Error unrelated to format
-                    flash("Error adding the product. The picture added could not be uploaded.", "error")
+            # Exception if product has incorrect format
+            except exceptions.FileHasIncorrectFormat as e:
+                flash(e.message, "error")
                 results = prod.get_all_products(conn)
                 return render_template('products.html', products=results, product_data=product_data, 
-                permissions=permissions)
+                permissions=permissions, username = username)
+
+            # Any other unexpected exceptions
+            except Exception as e: # Early return and flash if there are any issues uploading a picture
+                flash("Error adding the product. The picture added could not be uploaded.", "error")
+                results = prod.get_all_products(conn)
+                return render_template('products.html', products=results, product_data=product_data, 
+                permissions=permissions, username = username)
+            
             
             # If file upload was sucessful, insert the product 
             prod.product_insert(conn, product_data['sku'], product_data['name'], 
@@ -206,22 +222,30 @@ def products():
             results = prod.get_all_products(conn)
             flash("The product was successfully added", "success")
             return render_template('products.html', products=results, product_data={},
-             permissions = permissions)
+             permissions = permissions, username = username)
 
-        except Exception as e:
-            if (len(e.args) > 1 and 'Duplicate entry' in e.args[1]):
-                flash('Error. The SKU indicated already corresponds to another product.'
+        # SKU of product added already corresponds to another product
+        except IntegrityError as e:
+            print(e)
+            flash('Error adding the product. The SKU indicated already corresponds to another product.'
                 , "error")
-            else:
-                flash('Error adding the product. Please try again.', "error")
             results = prod.get_all_products(conn)
             return render_template('products.html', products=results, product_data={}, 
-            permissions=permissions)
+            permissions=permissions, username = username)
+
+
+        # Catch any other unexpected error
+        except Exception as e:
+            flash('Error adding the product. Please try again.', "error")
+            results = prod.get_all_products(conn)
+            return render_template('products.html', products=results, product_data={}, 
+            permissions=permissions, username = username)
 
 
 @app.route('/products/edit/<sku>', methods=['GET', 'POST'])
 def edit_product(sku):
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
 
     # Check permission levels
     permissions = session.get('permissions', '')
@@ -240,7 +264,7 @@ def edit_product(sku):
     # Request is GET
     if request.method == 'GET':
         return render_template('products.html', sku = sku, products=results, edit=True, 
-        permissions=permissions)
+        permissions=permissions, username = username)
 
     # Request is POST
     else:
@@ -254,16 +278,20 @@ def edit_product(sku):
                 file_name = prod.upload_file(file, ALLOWED_EXTENSIONS, sku, 
                 app.config['UPLOADS'])
 
-            except Exception as e: # Early return and flash if there are any issues uploading a picture
-                if (len(e.args) == 1 and 'incorrect format' in e.args[0]):
-                    flash("""Error editing the product. The picture added must be a jpeg, 
-                    jpg or png file""", "error")
-                else: # Error unrelated to format
-                    flash("Error editing the product. The picture added could not be uploaded.",
+            # Flash informative error message if file has incorrect format
+            except exceptions.FileHasIncorrectFormat as e:
+                flash(e.message, "error")
+                results = prod.get_all_products(conn)
+                return render_template('products.html', sku = sku, edit=True,
+                products=results, permissions=permissions, username = username)
+
+            # Catch all other possible errors
+            except Exception:
+                flash("Error editing the product. The picture added could not be uploaded.",
                      "error")
                 results = prod.get_all_products(conn)
                 return render_template('products.html', sku = sku, edit=True,
-                products=results, permissions=permissions)
+                products=results, permissions=permissions, username = username)
             
             # If no issues with picture, try to update product
             updated_products = prod.update_product(conn, request.form['product-name'], 
@@ -276,34 +304,47 @@ def edit_product(sku):
             if sku == request.form['product-sku']:
                 return render_template('products.html', sku = sku, 
                         products=updated_products, edit=True, 
-                        permissions = permissions)
+                        permissions = permissions, username = username)
             # SKU has changed, we need to redirect
             else:
                 return redirect(url_for('edit_product', sku = request.form['product-sku']))
 
-        except Exception as e:
-            if len(e.args) >= 2 and 'duplicate entry' in e.args[1]: 
-                flash("""Error updating the product. The SKU provided already identifies 
+        # Flash informative message if the SKU provided already exists
+        # IntegrityError wasn't catching this so I had to use a more generic type of error
+        except MySQLError:
+            flash("""Error updating the product. The SKU provided already identifies 
                     another product.""", "error")
-            else:
-                flash("Error updating the product. Try again.", "error")
             return render_template('products.html', sku = sku, 
-            products=results, edit=True, permissions = permissions)
+            products=results, edit=True, permissions = permissions, username = username)
+            
+        # Catch any other unexpected error
+        except Exception as e:
+            print(e.args)
+            flash("Error updating the product. Try again.", "error")
+            return render_template('products.html', sku = sku, 
+            products=results, edit=True, permissions = permissions, 
+            username = username)
             
 
-@app.route('/products/delete/<sku>', methods=['POST'])
+@app.route('/products/delete/<sku>', methods=['GET', 'POST'])
 def delete_product(sku):
-    
+
     # Check permission levels
     if not access.has_permissions('product'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
         return redirect(url_for('login'))
 
+    if request.method == 'GET':
+        redirect(url_for('products'))
+        
     conn = dbi.connect()
     try:
         prod.delete_product_by_sku(conn, sku)
         flash("The product was sucessfully deleted.", "success")
         return redirect(url_for('products'))
+
+    # Using generic error since I am not distinguishing between 
+    # any specific errors in deleting when calling delete on MySQL
     except Exception as e:
         flash("Error. The product could not be deleted.", "error")
         return redirect(url_for('products'))
@@ -313,13 +354,15 @@ def order_products():
     
     # Check permission levels
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
     
     if not access.has_permissions('product'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
         return redirect(url_for('login'))
 
     if request.method == 'GET':
-        return render_template('order.html', permissions = permissions)
+        return render_template('order.html', permissions = permissions, 
+        username =  username)
     # Request is POST
     else:
         conn = dbi.connect()
@@ -330,20 +373,28 @@ def order_products():
             flash("""The order for product with
              SKU """+ request.form['product-sku'] +" was sucessfully added.", 
              "success")
-            return render_template('order.html', permissions = permissions)
-        except Exception as e:
-            if len(e.args)  == 2 and 'FOREIGN KEY (`sku`)' in e.args[1]:
-                flash("""Error adding the order: the product with the SKU 
+            return render_template('order.html', permissions = permissions, 
+            username =  username)
+
+        # Flash informative message if product with SKU provided doesn't exist
+        except IntegrityError:
+            flash("""Error adding the order: the product with the SKU 
                 provided doesn't exist.""","error")
-            else:
-                flash("Error adding the order.", "error")
-            return render_template('order.html', permissions = permissions)
+            return render_template('order.html', permissions = permissions, 
+            username = username)
+
+        # Catching any other unexpected errors
+        except Exception as e:
+            flash("Error adding the order.", "error")
+            return render_template('order.html', permissions = permissions, 
+            username = username)
 
 @app.route('/transactions/')
 def transactions():
     
     # Check permission levels
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
     
     if not access.has_permissions('transactions'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
@@ -362,13 +413,15 @@ def transactions():
     else:
         results = transaction.get_all_transactions(conn)
     return render_template('transactions.html', transactions = results, 
-    search = request.args.get('search'), permissions = permissions)
+    search = request.args.get('search'), permissions = permissions, 
+    username = username)
 
 @app.route('/manage_access/')
 def users():
     
     # Check permission levels
     permissions = session.get('permissions', '')
+    username = session.get('username', '')
     
     if not access.has_permissions('staff'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
@@ -381,7 +434,7 @@ def users():
         conn = dbi.connect()
         results = access.get_all_access(conn, username)
         return render_template('manage-access.html', users = results, 
-        permissions = permissions)
+        permissions = permissions, username = username)
 
 # AJAX routes
 @app.route('/username_exists/<username>')
@@ -446,13 +499,16 @@ def add_member():
     try:
         result = access.add_member(conn, username, name, role, permission)
         return jsonify(result)
-    except Exception as e:
-        print(e)
-        if (len(e.args) == 2 and 'Duplicate entry' in e.args[1]):
-            message = jsonify(message="""Error adding member. A member with the 
+
+    # Error if member is duplicated
+    except IntegrityError:
+        message = jsonify(message="""Error adding member. A member with the 
             username {} already exists.""".format(username))
-        else:
-            message = jsonify(message='Error adding member')
+        return make_response(message, 400)
+
+    # Any other unexpected errors
+    except Exception as e:
+        message = jsonify(message='Error adding member')
         return make_response(message, 400)
 
 @app.errorhandler(404)

@@ -6,6 +6,7 @@
 import cs304dbi as dbi
 import os
 from werkzeug.utils import secure_filename
+import exceptions
 
 
 def get_all_products(conn):
@@ -40,7 +41,7 @@ def product_sort(conn, by, order):
     order_by = {"price", "title", "sku"}
     direction = {"asc", "desc"}
     if by not in order_by or order not in direction:
-        raise Exception("Type to sort by in products is not permitted")
+        raise exceptions.ProductSortInvalid()
     
     # We have already vetted the user input, so we can go ahead and use it
     sql = "select * from product order by " + by +  " " + order
@@ -65,9 +66,9 @@ def product_search(conn, search_type, query):
         product object.
     """
     curs = dbi.dict_cursor(conn)
-    order_by = {"price", "title", "sku"}
-    if search_type not in order_by:
-        raise Exception("Type to sort by in products is not permitted")
+    search_by = {"price", "title", "sku", "last_modified_by"}
+    if search_type not in search_by:
+        raise exceptions.ProductSortInvalid()
     
     # We can use search_type because we have already vetted the input
     sql = "select * from product where " + search_type + " like %s order by title"
@@ -208,7 +209,7 @@ def upload_file(file, extension_list, sku, uploads):
     if user_filename != '': # User uploaded file
         ext = user_filename.split('.')[-1]
         if ext not in extension_list:
-            raise Exception("Error inserting the product. File uploaded has incorrect format.")
+            raise exceptions.FileHasIncorrectFormat()
         else:
             filename = secure_filename('{}.{}'.format(sku, ext))
             pathname = os.path.join(uploads, filename)

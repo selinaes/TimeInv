@@ -34,7 +34,8 @@
         </li>
         {% endif %}
       </ul>
-      <div>
+      <div class="d-flex justify-content-end">
+        <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
         <form method="POST" action="{{url_for('logout')}}">
           <button type="submit" class="btn btn-outline-light">
             Log out

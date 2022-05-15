@@ -37,13 +37,14 @@
                     <a class="nav-link active" href="{{url_for('users')}}">Manage Access</a>
                 </li>
             </ul>
-            <div>
+            <div class="d-flex justify-content-end">
+                <span class="text-white px-3 pt-2">Logged in as {{username}}</span>
                 <form method="POST" action="{{url_for('logout')}}">
-                    <button type="submit" class="btn btn-outline-light">
-                        Log out
-                    </button>
+                  <button type="submit" class="btn btn-outline-light">
+                    Log out
+                  </button>
                 </form>
-            </div>
+              </div>
         </div>
     </div>
 </nav>
@@ -330,7 +331,7 @@
 
     function delete_member(username) {
         console.log("called delete");
-        $.ajax(delete_member_url + + username,
+        $.ajax(delete_member_url +  username,
         { method: 'DELETE', success:
             function (resp) {
                 var value = JSON.stringify(resp);
@@ -365,7 +366,7 @@
 
     // Remove error message if user clicks on anything
     $(document).on('click', function (event) {
-        $("#error").text("");
+        $("#error").delay.hide(6);
     })
 
     // Change checked attribute if checkbox is checked/unchecked by user
