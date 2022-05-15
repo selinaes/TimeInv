@@ -174,6 +174,7 @@ def products():
     conn = dbi.connect()
     if request.method == 'GET':
         if request.args:
+            # We allow the search query to be empty '' (not None) but not the colum
             if request.args.get('search') or request.args.get('search') == '':
                 results = prod.product_search(conn, request.args.get('by'), 
                 request.args.get('search'))
@@ -395,14 +396,16 @@ def transactions():
     # Check permission levels
     permissions = session.get('permissions', '')
     username = session.get('username', '')
+
+    print(permissions)
     
-    if not access.has_permissions('transactions'):
+    if not access.has_permissions('transaction'):
         flash("You attempted to access a forbidden page. Please log in again.", "error")
         return redirect(url_for('login'))
 
     conn = dbi.connect()
     if request.args:
-        search_query = request.args.get('search', '')
+        # Allow user to have empty search field but not empty column
         if request.args.get('search') or request.args.get('search') == '':
             results = transaction.transaction_search(conn, 
             request.args.get('by'), 
@@ -487,8 +490,10 @@ def add_member():
     role = request.form.get('role', '')
     permission = request.form.get('permission', '')
 
+    print(permission)
+
     # Checking permission format
-    if ',' in permission:
+    if ',' in permission or permission == 'staff':
         permission_levels = permission.split(',')
         known_levels = 'product, transaction, staff, supplier, supplierTerm'
         if all(element in known_levels for element in permission_levels) == False:

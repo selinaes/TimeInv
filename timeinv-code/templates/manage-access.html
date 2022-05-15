@@ -481,7 +481,7 @@
         else if (permissions !== '' && !username.includes(' ') &&
             name !== '' && role !== '') {
             add_member(username, name, role, permissions);
-            location.reload();
+            setTimeout(() => window.location.reload(), 1000);
             $("#add").modal('hide');
             $('.modal-backdrop').remove();
         } else if (permissions == '') {

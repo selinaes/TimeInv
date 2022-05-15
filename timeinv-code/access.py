@@ -20,7 +20,7 @@ def has_permissions(permission):
     permissions = session.get('permissions', '')
 
     # Check if user is logged in or if user is trying to access a forbidden route
-    if session.get('logged_in') == None or 'product' not in permissions:
+    if session.get('logged_in') == None or permission not in permissions:
         return False
 
     return True
